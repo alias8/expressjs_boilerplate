@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "start": "ts-node src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
     "express": "~4.16.1",
@@ -16,13 +19,18 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.20.0",
+    "@eslint/js": "^10.0.1",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.3",
     "@types/http-errors": "^2.0.4",
     "@types/morgan": "^1.9.9",
     "@types/node": "^25.5.0",
+    "@types/pg": "^8.20.0",
+    "eslint": "^10.1.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.57.2"
   }
 }
