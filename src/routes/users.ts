@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../db/pool';
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -16,8 +16,8 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const passwordHash = await bcrypt.hash(password, bcryptSaltRounds);
     const result = await pool.query(
-      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, created_at',
-      [username, passwordHash],
+      'INSERT INTO users (username, password_hash, created_at) VALUES ($1, $2, $3) RETURNING id, username, created_at',
+      [username, passwordHash, new Date()],
     );
     const user = result.rows[0]; // the inserted row
     res.json({ user });
