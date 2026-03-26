@@ -1,25 +1,25 @@
 export interface User {
-    id: string;
-    username: string;
-    passwordHash: string;
-    createdAt: Date;
+  id: string;
+  username: string;
+  password_hash: string;
+  created_at: Date;
 }
 
 export interface Conversation {
-    id: string,
-    createdAt: Date
+  id: string;
+  created_at: Date;
 }
 
 export interface ConversationMember {
-    conversationId: string,
-    userId: string
+  conversation_id: string;
+  user_id: string;
 }
 
 export interface Message {
-    messageId: string,
-    conversationId: string,
-    fromUserId: string,
-    body: string,
-    seq: bigint,
-    createdAt: Date
+  id: string;
+  conversation_id: string;
+  from_user_id: string;
+  body: string;
+  seq: bigint;
+  created_at: Date;
 }

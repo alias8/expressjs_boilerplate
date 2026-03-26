@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../db/pool';
 import * as bcrypt from 'bcryptjs';
+import { User } from '../models/models';
 
 const router = Router();
 
@@ -10,7 +11,13 @@ interface UserLoginRequest {
 }
 
 const bcryptSaltRounds = 10;
-
+/*
+* For development
+* {
+    "username": "user1",
+    "password": "password1"
+}
+* */
 router.post('/register', async (req: Request, res: Response) => {
   const { username, password } = req.body as UserLoginRequest;
   try {
@@ -31,9 +38,25 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// router.post('/login', (req: Request, res: Response) => {
-//   const { username, password } = req.body;
-//   res.json({ message: 'users route' });
-// });
+router.post('/login', async (req: Request, res: Response) => {
+  const { username, password } = req.body as UserLoginRequest;
+  try {
+    const result = await pool.query(
+      'SELECT id, username, password_hash FROM users WHERE username = $1',
+      [username],
+    );
+    const user: User = result.rows[0];
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    return res.status(200).json({ username: username, id: user.id });
+  } catch (e: unknown) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 export default router;
