@@ -11,15 +11,18 @@
     "debug": "~2.6.9",
     "express": "~4.16.1",
     "http-errors": "~1.6.3",
-    "morgan": "~1.9.1"
+    "ioredis": "^5.10.1",
+    "morgan": "~1.9.1",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.2",
+    "@types/pg": "^8.20.0",
     "@types/cookie-parser": "^1.4.8",
     "@types/express": "^5.0.3",
     "@types/http-errors": "^2.0.4",
     "@types/morgan": "^1.9.9",
-    "@types/node": "^25.5.0"
+    "@types/node": "^25.5.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
   }
 }
