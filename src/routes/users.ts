@@ -60,4 +60,16 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT id, username FROM users WHERE username LIKE $1', [
+      `%${req.query.username}%`,
+    ]);
+    return res.status(200).json({ users: result.rows });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    res.status(500).json({ error: `Internal server error: ${message}` });
+  }
+});
+
 export default router;
