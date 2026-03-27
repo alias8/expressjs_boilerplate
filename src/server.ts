@@ -5,8 +5,10 @@ import { Server, WebSocket as WsWebSocket } from 'ws';
 import { URL } from 'node:url';
 import { Message } from './models/models';
 import { pool } from './db/pool';
+import { Redis } from 'ioredis';
 
 const port = process.env.PORT ?? 3000;
+const redis = new Redis();
 
 const server = http.createServer(app);
 server.listen(port, () => {
@@ -14,7 +16,6 @@ server.listen(port, () => {
 });
 const wss = new Server({ server });
 export const userIdToWsConnectionMap = new Map<string, WsWebSocket>();
-let nonRedisCounter = 0;
 
 /*
   1. After logging in, the frontend opens a WebSocket: new WebSocket('ws://localhost:3000?userId=123')
@@ -52,12 +53,12 @@ wss.on('connection', (ws, req) => {
   ws.on('message', async (message) => {
     // userA sends message to userB
     const parsedMessage: Message = JSON.parse(message.toString());
-    nonRedisCounter++;
     const { conversation_id, from_user_id, body } = parsedMessage;
+    const seq = await redis.incr(`conversation:${conversation_id}:seq`);
     // Save message in postgres
     await pool.query(
       'INSERT INTO messages (conversation_id, from_user_id, seq, body, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [conversation_id, from_user_id, nonRedisCounter, body, new Date()],
+      [conversation_id, from_user_id, seq, body, new Date()],
     );
     // query postgres to find relevant conversation
     const idToSendToResult = await pool.query(
@@ -76,7 +77,7 @@ wss.on('connection', (ws, req) => {
       // user is offline — that's fine, message is already saved to Postgres
       return;
     }
-    recipientSocket.send(JSON.stringify(parsedMessage));
+    recipientSocket.send(JSON.stringify({ ...parsedMessage, seq }));
   });
 
   // Listen for the client closing the connection
