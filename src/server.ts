@@ -8,8 +8,13 @@ import { ConnectionManager } from './ConnectionManager';
 import { MessageService } from './MessageService';
 
 const port = process.env.PORT ?? 3000;
-const redisPublish = new Redis();
-const redisSubscribe = new Redis();
+/*
+ * These Redis objects are just connections to a separate and shared redis server elsewhere. All servers will connect
+ * to the same redis server.
+ * The userIdToWsConnectionMap is storing sessions for each server only.
+ * */
+const redisPublish = new Redis(process.env.REDIS_URL);
+const redisSubscribe = new Redis(process.env.REDIS_URL);
 
 const server = http.createServer(app);
 server.listen(port, () => {
