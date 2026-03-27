@@ -61,4 +61,18 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/:id/messages', async (req: Request, res: Response) => {
+  try {
+    const after = req.query.after;
+    const result = await pool.query(
+      `SELECT * FROM messages WHERE conversation_id = $1 AND seq > $2 ORDER BY seq`,
+      [req.params.id, after],
+    );
+    return res.status(200).json({ messages: result.rows });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    res.status(500).json({ error: `Internal server error: ${message}` });
+  }
+});
+
 export default router;
