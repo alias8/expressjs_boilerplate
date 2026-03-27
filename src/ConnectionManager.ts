@@ -12,7 +12,7 @@ export class ConnectionManager {
     this.redisSubscribe.on('messageBuffer', async (channel, message) => {
       // 4. Redis received a message from userA to userB. Only the 1 server that userB is on will run this listener
       const recipientUserId = channel.toString().replace('user:', '');
-      this.getSocket(recipientUserId)?.send(message);
+      this.getSocket(recipientUserId)?.send(message.toString());
     });
   }
 

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<input id="msg" placeholder="message"/>
+<button onclick="send()">Send</button>
+<div id="log"></div>
+<script>
+    const ws = new WebSocket('ws://localhost:3001?userId=f99181f8-7db7-4086-8090-947403c7c33c');  // change port per window
+    ws.onmessage = e => log(e.data);
+
+    function send() {
+        ws.send(JSON.stringify({
+            conversation_id: '1693be9b-d4cc-460f-8f36-5e7e8cb0fcc9',
+            from_user_id: 'f99181f8-7db7-4086-8090-947403c7c33c', // userB
+            body: document.getElementById('msg').value
+        }));
+    }
+
+    function log(msg) {
+        const parsed = JSON.parse(msg);
+        document.getElementById('log').innerHTML += `<p>UserA ${parsed.created_at}: ${parsed.body}</p>`;
+    }
+</script>
+
+</body>
+</html>

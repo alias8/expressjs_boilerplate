@@ -13,8 +13,8 @@ const port = process.env.PORT ?? 3000;
  * to the same redis server.
  * The userIdToWsConnectionMap is storing sessions for each server only.
  * */
-const redisPublish = new Redis(process.env.REDIS_URL);
-const redisSubscribe = new Redis(process.env.REDIS_URL);
+const redisPublish = new Redis();
+const redisSubscribe = new Redis();
 
 const server = http.createServer(app);
 server.listen(port, () => {
