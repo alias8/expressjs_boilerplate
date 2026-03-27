@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import createError, { HttpError } from 'http-errors';
 
 import usersRouter from './routes/users';
+import usersConversationsRouter from './routes/conversations';
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use('/users', usersRouter);
+app.use('/conversations', usersConversationsRouter);
 
 // 404 handler
 app.use((req: Request, res: Response, next: NextFunction) => {

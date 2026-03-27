@@ -54,6 +54,7 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     return res.status(200).json({ username: username, id: user.id });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
     res.status(500).json({ error: 'Internal server error' });
   }

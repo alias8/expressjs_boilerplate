@@ -3,7 +3,7 @@ import http from 'http';
 import app from './app';
 import { Server, WebSocket as WsWebSocket } from 'ws';
 import { URL } from 'node:url';
-import { ConversationMember, Message, User } from './models/models';
+import { Message } from './models/models';
 import { pool } from './db/pool';
 
 const port = process.env.PORT ?? 3000;
@@ -17,7 +17,7 @@ export const userIdToWsConnectionMap = new Map<string, WsWebSocket>();
 let nonRedisCounter = 0;
 
 /*
-  1. Your frontend (or any client) opens a WebSocket: new WebSocket('ws://localhost:3000?userId=123')
+  1. After logging in, the frontend opens a WebSocket: new WebSocket('ws://localhost:3000?userId=123')
   2. The browser sends a special HTTP request called an upgrade request to your server
   3. The ws library intercepts that on your HTTP server, does the WebSocket handshake, and then emits the connection event
   4. Your wss.on('connection', (ws, req) => { ... }) callback runs — ws is the live socket for that specific client, req is the original upgrade request (which is how
