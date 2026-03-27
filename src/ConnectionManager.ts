@@ -8,7 +8,13 @@ import { MessageService } from './MessageService';
 export class ConnectionManager {
   private userIdToWsConnectionMap = new Map<string, WsWebSocket>(); // ConnectionId: Websocket map
 
-  constructor(private redisSubscribe: Redis) {}
+  constructor(private redisSubscribe: Redis) {
+    this.redisSubscribe.on('messageBuffer', async (channel, message) => {
+      // 4. Redis received a message from userA to userB. Only the 1 server that userB is on will run this listener
+      const recipientUserId = channel.toString().replace('user:', '');
+      this.getSocket(recipientUserId)?.send(message);
+    });
+  }
 
   /*
    1. Connection setup (before the message)
@@ -53,12 +59,6 @@ export class ConnectionManager {
         console.error(`Error when handling message, ${errorMessage}`);
       }
     });
-
-    this.redisSubscribe.on('messageBuffer', async (channel, message) => {
-      // 4. Redis received a message from userA to userB. Only the 1 server that userB is on will run this listener
-      const recipientUserId = channel.toString().replace('user:', '');
-      this.getSocket(recipientUserId)?.send(message);
-    });
   }
 
   handleCloseConnection(ws: WebSocket, userId: string) {
@@ -69,6 +69,7 @@ export class ConnectionManager {
 
   remove(userId: string) {
     this.userIdToWsConnectionMap.delete(userId);
+    this.redisSubscribe.unsubscribe(`user:${userId}`);
   }
 
   getUserId(ws: WebSocket, req: http.IncomingMessage) {
