@@ -8,7 +8,8 @@ import { ConnectionManager } from './ConnectionManager';
 import { MessageService } from './MessageService';
 
 const port = process.env.PORT ?? 3000;
-const redis = new Redis();
+const redisPublish = new Redis();
+const redisSubscribe = new Redis();
 
 const server = http.createServer(app);
 server.listen(port, () => {
@@ -17,7 +18,7 @@ server.listen(port, () => {
 
 const wss = new Server({ server });
 
-const connectionManager = new ConnectionManager();
-const messageService = new MessageService(pool, redis, connectionManager);
+const connectionManager = new ConnectionManager(redisSubscribe);
+const messageService = new MessageService(pool, redisPublish);
 
 wss.on('connection', (ws, req) => connectionManager.handleConnection(ws, req, messageService));

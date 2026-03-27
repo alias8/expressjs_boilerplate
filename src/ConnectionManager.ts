@@ -8,8 +8,15 @@ import { MessageService } from './MessageService';
 export class ConnectionManager {
   private userIdToWsConnectionMap = new Map<string, WsWebSocket>(); // ConnectionId: Websocket map
 
-  constructor() {}
+  constructor(private redisSubscribe: Redis) {}
 
+  /*
+   1. Connection setup (before the message)
+  Both users connected earlier via WebSocket to ws://localhost:3000?userId=A and ws://localhost:3000?userId=B.
+  When each connected, ConnectionManager.add() did two things:
+  - Stored their socket in userIdToWsConnectionMap (userId → ws)
+  - Subscribed Redis to the channel user:<userId> for that user
+  * */
   handleConnection(ws: WebSocket, req: http.IncomingMessage, messageService: MessageService) {
     const userId = this.getUserId(ws, req);
     if (userId) {
@@ -21,10 +28,23 @@ export class ConnectionManager {
 
   add(userId: string, ws: WebSocket) {
     this.userIdToWsConnectionMap.set(userId, ws);
+    this.redisSubscribe.subscribe(`user:${userId}`, (err, count) => {
+      if (err) {
+        console.error('Failed to subscribe: %s', err.message);
+      } else {
+        console.log(
+          `Subscribed successfully! This client is currently subscribed to ${count} channels.`,
+        );
+      }
+    });
   }
 
   handleMessages(ws: WebSocket, messageService: MessageService) {
     ws.on('message', async (message) => {
+      /*
+      2. userA's client sends a JSON frame over their WebSocket:
+      { "conversation_id": "123", "from_user_id": "A", "body": "hey!" }
+      * */
       try {
         const parsedMessage: Message = JSON.parse(message.toString());
         await messageService.handleIncoming(parsedMessage);
@@ -32,6 +52,12 @@ export class ConnectionManager {
         const errorMessage = e instanceof Error ? e.message : 'Unknown error';
         console.error(`Error when handling message, ${errorMessage}`);
       }
+    });
+
+    this.redisSubscribe.on('messageBuffer', async (channel, message) => {
+      // 4. Redis received a message from userA to userB. Only the 1 server that userB is on will run this listener
+      const recipientUserId = channel.toString().replace('user:', '');
+      this.getSocket(recipientUserId)?.send(message);
     });
   }
 
