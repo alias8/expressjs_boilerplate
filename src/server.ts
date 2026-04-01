@@ -13,7 +13,7 @@ const port = process.env.PORT ?? 3000;
  * to the same redis server.
  * The userIdToWsConnectionMap is storing sessions for each server only.
  * */
-const redisPublish = new Redis();
+const redisPublish = new Redis(); // new Redis() with no arguments uses ioredis defaults: localhost:6379
 const redisSubscribe = new Redis();
 
 const server = http.createServer(app);

@@ -6,7 +6,7 @@ import createError, { HttpError } from 'http-errors';
 import usersRouter from './routes/users';
 import usersConversationsRouter from './routes/conversations';
 
-const app = express();
+export const app = express();
 
 app.use(logger('dev'));
 app.use(express.json());

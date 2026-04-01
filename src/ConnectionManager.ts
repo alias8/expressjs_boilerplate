@@ -18,7 +18,7 @@ export class ConnectionManager {
 
   /*
    1. Connection setup (before the message)
-  Both users connected earlier via WebSocket to ws://localhost:3000?userId=A and ws://localhost:3000?userId=B.
+  Both users connected earlier via WebSocket to ws://localhost:3000?userId=A and ws://localhost:3001?userId=B.
   When each connected, ConnectionManager.add() did two things:
   - Stored their socket in userIdToWsConnectionMap (userId → ws)
   - Subscribed Redis to the channel user:<userId> for that user
