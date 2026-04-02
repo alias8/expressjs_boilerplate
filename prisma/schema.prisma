@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String               @id @default(uuid())
+  username           String               @unique
+  password_hash      String
+  created_at         DateTime             @default(now())
+  messages           Message[] // the relation field (not a DB column, just for Prisma)
+  conversationMember ConversationMember[] // the relation field (not a DB column, just for Prisma)
+}
+
+model Conversation {
+  id                 String               @id @default(uuid())
+  created_at         DateTime             @default(now())
+  messages           Message[] // the relation field (not a DB column, just for Prisma)
+  conversationMember ConversationMember[] // the relation field (not a DB column, just for Prisma)
+}
+
+model ConversationMember {
+  conversation_id String
+  conversation    Conversation @relation(fields: [conversation_id], references: [id]) // the relation field (not a DB column, just for Prisma)
+  user_id         String
+  user            User         @relation(fields: [user_id], references: [id])
+  @@id([conversation_id, user_id])
+}
+
+model Message {
+  id              String       @id @default(uuid())
+  conversation_id String
+  conversation    Conversation @relation(fields: [conversation_id], references: [id]) // the relation field (not a DB column, just for Prisma)
+  from_user_id    String
+  user            User         @relation(fields: [from_user_id], references: [id]) // the relation field (not a DB column, just for Prisma)
+  body            String
+  seq             BigInt
+  created_at      DateTime     @default(now())
+}

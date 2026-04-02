@@ -1,6 +1,10 @@
+import 'dotenv/config';
 import * as bcrypt from 'bcryptjs';
-import { pool } from './pool';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/prisma/client';
 
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 const SALT_ROUNDS = 10;
 
 const users = [
@@ -10,16 +14,15 @@ const users = [
 
 async function seed() {
   for (const { username, password } of users) {
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    await pool.query(
-      `INSERT INTO users (username, password_hash, created_at)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (username) DO NOTHING`,
-      [username, passwordHash, new Date()],
-    );
+    const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
+    await prisma.user.upsert({
+      where: { username },
+      update: {},
+      create: { username, password_hash },
+    });
     console.log(`Seeded user: ${username}`);
   }
-  await pool.end();
+  await prisma.$disconnect();
 }
 
 seed().catch((err) => {
