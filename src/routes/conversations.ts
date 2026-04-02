@@ -7,6 +7,33 @@ interface ConversationCreateRequest {
   userIds: string[];
 }
 
+// Get conversations for a user
+router.get('/', async (req: Request, res: Response) => {
+  const userId = req.query.userId as string;
+  if (!userId) {
+    res.status(400).json({ error: 'userId is required' });
+    return;
+  }
+  try {
+    const conversations = await prisma.conversation.findMany({
+      where: { conversationMember: { some: { user_id: userId } } },
+      include: {
+        conversationMember: { include: { user: { select: { id: true, username: true } } } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    res.json({
+      conversations: conversations.map((c) => ({
+        id: c.id,
+        participants: c.conversationMember.map((m) => m.user),
+      })),
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    res.status(500).json({ error: `Internal server error: ${message}` });
+  }
+});
+
 router.post('/', async (req: Request, res: Response) => {
   const { userIds } = req.body as ConversationCreateRequest;
 
