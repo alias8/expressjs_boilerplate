@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import logger from 'morgan';
 import cookieParser from 'cookie-parser';
 import createError, { HttpError } from 'http-errors';
@@ -8,6 +9,7 @@ import usersConversationsRouter from './routes/conversations';
 
 export const app = express();
 
+app.use(cors());
 app.use(logger('dev'));
 app.use(express.json());
 app.use(cookieParser());
