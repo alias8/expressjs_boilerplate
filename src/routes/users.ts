@@ -56,6 +56,20 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id as string },
+      select: { id: true, username: true },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.status(200).json({ user });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    res.status(500).json({ error: `Internal server error: ${message}` });
+  }
+});
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
