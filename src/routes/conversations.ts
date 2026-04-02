@@ -7,7 +7,7 @@ interface ConversationCreateRequest {
   userIds: string[];
 }
 
-// Get conversations for a user
+// Get conversations for a user, when user logs in and sees the list of convos
 router.get('/', async (req: Request, res: Response) => {
   const userId = req.query.userId as string;
   if (!userId) {
@@ -34,6 +34,7 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Create convo
 router.post('/', async (req: Request, res: Response) => {
   const { userIds } = req.body as ConversationCreateRequest;
 
@@ -61,14 +62,75 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const conversation = await prisma.$transaction(async (tx) => {
       const convo = await tx.conversation.create({ data: {} });
+      const joined_seq = await tx.message.findFirst({
+        where: {
+          conversation_id: convo.id,
+        },
+        orderBy: { seq: 'desc' },
+        take: 1,
+      });
       for (const userId of userIds) {
         await tx.conversationMember.create({
-          data: { conversation_id: convo.id, user_id: userId },
+          data: {
+            conversation_id: convo.id,
+            user_id: userId,
+            joined_seq: joined_seq?.seq ?? BigInt(0),
+          },
         });
       }
       return convo;
     });
     return res.status(200).json({ conversationId: conversation.id });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    res.status(500).json({ error: `Failed to create conversation: ${message}` });
+  }
+});
+
+// Add 1 or more users to convo
+router.post('/:conversationId/add/', async (req: Request, res: Response) => {
+  const { userIds } = req.body as ConversationCreateRequest;
+  const conversationId = req.params.conversationId as string;
+
+  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
+  if (foundUsers.length !== userIds.length) {
+    res.status(404).json({ error: 'One or more users not found' });
+    return;
+  }
+
+  // Find if convo exists
+  const existingConvo = await prisma.conversation.findFirst({ where: { id: conversationId } });
+  if (!existingConvo) {
+    return res.status(404).json({ error: `conversationid ${conversationId} not found` });
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const userId of userIds) {
+        const alreadyInConversation = await tx.conversationMember.findFirst({
+          where: {
+            AND: [{ conversation_id: conversationId }, { user_id: userId }, { left_seq: null }],
+          },
+        });
+        if (!alreadyInConversation) {
+          const joined_seq = await tx.message.findFirst({
+            where: {
+              conversation_id: conversationId,
+            },
+            orderBy: { seq: 'desc' },
+            take: 1,
+          });
+          await tx.conversationMember.create({
+            data: {
+              conversation_id: existingConvo.id,
+              user_id: userId,
+              joined_seq: joined_seq?.seq ?? BigInt(0),
+            },
+          });
+        }
+      }
+    });
+    return res.status(200).json({ conversationId: existingConvo.id });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     res.status(500).json({ error: `Failed to create conversation: ${message}` });
