@@ -7,7 +7,11 @@ export class MessageService {
     private redisPublish: Redis,
   ) {}
 
-  async handleIncoming(parsedMessage: { conversation_id: string; from_user_id: string; body: string }) {
+  async handleIncoming(parsedMessage: {
+    conversation_id: string;
+    from_user_id: string;
+    body: string;
+  }) {
     const { conversation_id, from_user_id, body } = parsedMessage;
     const seq = await this.redisPublish.incr(`conversation:${conversation_id}:seq`);
     const created_at = new Date();
@@ -21,23 +25,25 @@ export class MessageService {
       },
     });
 
-    const recipient = await this.prisma.conversationMember.findFirst({
+    const recipients = await this.prisma.conversationMember.findMany({
       where: {
         conversation_id,
         NOT: { user_id: from_user_id },
       },
     });
 
-    if (!recipient) {
+    if (recipients.length === 0) {
       console.error(
-        `No recipient found for conversation ${conversation_id} excluding user ${from_user_id}`,
+        `No recipients found for conversation ${conversation_id} excluding user ${from_user_id}`,
       );
       return;
     }
 
-    this.redisPublish.publish(
-      `user:${recipient.user_id}`,
-      JSON.stringify({ ...parsedMessage, created_at, seq }),
-    );
+    recipients.forEach((recipient) => {
+      this.redisPublish.publish(
+        `user:${recipient.user_id}`,
+        JSON.stringify({ ...parsedMessage, created_at, seq }),
+      );
+    });
   }
 }

@@ -4,30 +4,26 @@ import { prisma } from '../db/prisma';
 const router = Router();
 
 interface ConversationCreateRequest {
-  user1Id: string;
-  user2Id: string;
+  userIds: string[];
 }
 
 router.post('/', async (req: Request, res: Response) => {
-  const { user1Id, user2Id } = req.body as ConversationCreateRequest;
+  const { userIds } = req.body as ConversationCreateRequest;
 
-  const user1 = await prisma.user.findUnique({ where: { id: user1Id } });
-  if (!user1) {
-    res.status(404).json({ error: `Userid ${user1Id} not found` });
-    return;
-  }
-  const user2 = await prisma.user.findUnique({ where: { id: user2Id } });
-  if (!user2) {
-    res.status(404).json({ error: `Userid ${user2Id} not found` });
+  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
+  if (foundUsers.length !== userIds.length) {
+    res.status(404).json({ error: 'One or more users not found' });
     return;
   }
 
-  // Find a conversation that has both users as members
+  // Find a conversation that has all users as members
   const existingConvo = await prisma.conversation.findFirst({
     where: {
       AND: [
-        { conversationMember: { some: { user_id: user1Id } } },
-        { conversationMember: { some: { user_id: user2Id } } },
+        // All requested users are present
+        ...userIds.map((id) => ({ conversationMember: { some: { user_id: id } } })),
+        // No extra users are present
+        { conversationMember: { every: { user_id: { in: userIds } } } },
       ],
     },
   });
@@ -38,12 +34,11 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const conversation = await prisma.$transaction(async (tx) => {
       const convo = await tx.conversation.create({ data: {} });
-      await tx.conversationMember.create({
-        data: { conversation_id: convo.id, user_id: user1Id },
-      });
-      await tx.conversationMember.create({
-        data: { conversation_id: convo.id, user_id: user2Id },
-      });
+      for (const userId of userIds) {
+        await tx.conversationMember.create({
+          data: { conversation_id: convo.id, user_id: userId },
+        });
+      }
       return convo;
     });
     return res.status(200).json({ conversationId: conversation.id });
