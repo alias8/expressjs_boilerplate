@@ -55,7 +55,8 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.get('/:id/messages', async (req: Request, res: Response) => {
   try {
-    const after = Number(Array.isArray(req.query.after) ? req.query.after[0] : req.query.after) || 0;
+    const after =
+      Number(Array.isArray(req.query.after) ? req.query.after[0] : req.query.after) || 0;
     const messages = await prisma.message.findMany({
       where: {
         conversation_id: req.params.id as string,
@@ -63,7 +64,9 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
       },
       orderBy: { seq: 'asc' },
     });
-    return res.status(200).json({ messages });
+    return res.status(200).json({
+      messages: messages.map((m) => ({ ...m, seq: m.seq.toString() })),
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     res.status(500).json({ error: `Internal server error: ${message}` });
