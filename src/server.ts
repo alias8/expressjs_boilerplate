@@ -2,7 +2,7 @@ import 'dotenv/config';
 import http from 'http';
 import app from './app';
 import { Server } from 'ws';
-import { pool } from './db/pool';
+import { prisma } from './db/prisma';
 import { Redis } from 'ioredis';
 import { ConnectionManager } from './ConnectionManager';
 import { MessageService } from './MessageService';
@@ -24,6 +24,6 @@ server.listen(port, () => {
 const wss = new Server({ server });
 
 const connectionManager = new ConnectionManager(redisSubscribe);
-const messageService = new MessageService(pool, redisPublish);
+const messageService = new MessageService(prisma, redisPublish);
 
 wss.on('connection', (ws, req) => connectionManager.handleConnection(ws, req, messageService));
