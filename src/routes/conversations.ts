@@ -37,12 +37,7 @@ router.get('/', async (req: Request, res: Response) => {
 // Create convo
 router.post('/', async (req: Request, res: Response) => {
   const { userIds } = req.body as ConversationCreateRequest;
-
-  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
-  if (foundUsers.length !== userIds.length) {
-    res.status(404).json({ error: 'One or more users not found' });
-    return;
-  }
+  if (!(await validateUsers(userIds, res))) return;
 
   // Find a conversation that has all users as members
   const existingConvo = await prisma.conversation.findFirst({
@@ -62,19 +57,12 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const conversation = await prisma.$transaction(async (tx) => {
       const convo = await tx.conversation.create({ data: {} });
-      const joined_seq = await tx.message.findFirst({
-        where: {
-          conversation_id: convo.id,
-        },
-        orderBy: { seq: 'desc' },
-        take: 1,
-      });
       for (const userId of userIds) {
         await tx.conversationMember.create({
           data: {
             conversation_id: convo.id,
             user_id: userId,
-            joined_seq: joined_seq?.seq ?? BigInt(0),
+            joined_seq: BigInt(0),
           },
         });
       }
@@ -87,16 +75,21 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+const validateUsers = async (userIds: string[], res: Response): Promise<boolean> => {
+  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
+  if (foundUsers.length !== userIds.length) {
+    res.status(404).json({ error: 'One or more users not found' });
+    return false;
+  }
+  return true;
+};
+
 // Add 1 or more users to convo
 router.post('/:conversationId/add/', async (req: Request, res: Response) => {
   const { userIds } = req.body as ConversationCreateRequest;
   const conversationId = req.params.conversationId as string;
 
-  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
-  if (foundUsers.length !== userIds.length) {
-    res.status(404).json({ error: 'One or more users not found' });
-    return;
-  }
+  if (!(await validateUsers(userIds, res))) return;
 
   // Find if convo exists
   const existingConvo = await prisma.conversation.findFirst({ where: { id: conversationId } });
@@ -118,7 +111,6 @@ router.post('/:conversationId/add/', async (req: Request, res: Response) => {
               conversation_id: conversationId,
             },
             orderBy: { seq: 'desc' },
-            take: 1,
           });
           await tx.conversationMember.create({
             data: {
