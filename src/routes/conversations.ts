@@ -53,19 +53,50 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+// Get messages
 router.get('/:id/messages', async (req: Request, res: Response) => {
   try {
-    const after =
-      Number(Array.isArray(req.query.after) ? req.query.after[0] : req.query.after) || 0;
-    const messages = await prisma.message.findMany({
-      where: {
-        conversation_id: req.params.id as string,
-        seq: { gt: BigInt(after) },
-      },
-      orderBy: { seq: 'asc' },
-    });
+    const before =
+      Number(Array.isArray(req.query.before) ? req.query.before[0] : req.query.before) || 0;
+    const since =
+      Number(Array.isArray(req.query.since) ? req.query.since[0] : req.query.since) || 0;
+    let messages;
+    if (req.query.before !== undefined) {
+      // up to 100 before that seq (scroll-back pagination)
+      messages = await prisma.message.findMany({
+        where: {
+          conversation_id: req.params.id as string,
+          seq: { lt: BigInt(before) },
+        },
+        orderBy: { seq: 'desc' },
+        take: 100,
+      });
+    } else if (req.query.since !== undefined) {
+      // up to 100 after that seq, ordered by most recent if >100 (reconnect catch-up)
+      messages = await prisma.message.findMany({
+        where: {
+          conversation_id: req.params.id as string,
+          seq: { gt: BigInt(since) },
+        },
+        orderBy: { seq: 'desc' },
+        take: 101,
+      });
+    } else {
+      // latest 100, no params (initial load)
+      messages = await prisma.message.findMany({
+        where: {
+          conversation_id: req.params.id as string,
+        },
+        orderBy: { seq: 'desc' },
+        take: 100,
+      });
+    }
+    const hasMore = messages.length === 101;
+    if (hasMore) messages.pop(); // reduce to 100 messages returned
+    messages.reverse();
     return res.status(200).json({
       messages: messages.map((m) => ({ ...m, seq: m.seq.toString() })),
+      ...(hasMore && { hasMore: true }),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
