@@ -24,6 +24,7 @@ router.post('/', async (req: Request, res: Response) => {
       new PutObjectCommand({
         Bucket: process.env.S3_BUCKET_NAME as string,
         Key: `uploads/${uuidv4()}.${fileType}`,
+        ContentType: `image/${fileType}`,
       }),
       { expiresIn: 5 * ONE_MINUTE },
     );
