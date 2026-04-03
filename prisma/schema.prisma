@@ -12,6 +12,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum MessageType {
+  text
+  image
+}
+
 model User {
   id                 String               @id @default(uuid())
   username           String               @unique
@@ -30,13 +35,14 @@ model Conversation {
 
 // Junction table of Conversation and User
 model ConversationMember {
-  id String @id @default(uuid())
-  joined_seq BigInt
-  left_seq BigInt?
+  id              String       @id @default(uuid())
+  joined_seq      BigInt
+  left_seq        BigInt?
   conversation_id String
   conversation    Conversation @relation(fields: [conversation_id], references: [id]) // the relation field (not a DB column, just for Prisma)
   user_id         String
   user            User         @relation(fields: [user_id], references: [id]) // the relation field (not a DB column, just for Prisma)
+
   @@unique([conversation_id, user_id, joined_seq])
 }
 
@@ -46,7 +52,9 @@ model Message {
   conversation    Conversation @relation(fields: [conversation_id], references: [id]) // the relation field (not a DB column, just for Prisma)
   from_user_id    String
   user            User         @relation(fields: [from_user_id], references: [id]) // the relation field (not a DB column, just for Prisma)
-  body            String
+  body            String?
+  type            MessageType
+  metadata        Json?
   seq             BigInt
   created_at      DateTime     @default(now())
 }
