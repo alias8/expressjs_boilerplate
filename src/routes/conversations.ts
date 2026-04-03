@@ -132,27 +132,47 @@ router.post('/:conversationId/add/', async (req: Request, res: Response) => {
 // Get messages
 router.get('/:id/messages', async (req: Request, res: Response) => {
   try {
+    const userId = req.query.userId as string;
+    if (!userId) {
+      res.status(400).json({ error: 'userId is required' });
+      return;
+    }
     const before =
       Number(Array.isArray(req.query.before) ? req.query.before[0] : req.query.before) || 0;
     const since =
       Number(Array.isArray(req.query.since) ? req.query.since[0] : req.query.since) || 0;
+    const conversationId = req.params.id as string;
+    const conversationMember = await prisma.conversationMember.findFirst({
+      where: {
+        conversation_id: conversationId,
+        user_id: userId,
+      },
+    });
+    if (conversationMember === null) {
+      return res
+        .status(403)
+        .json({ error: `Cannot find joined seq for convo id ${conversationId} user ${userId}` });
+    }
     let messages;
     if (req.query.before !== undefined) {
       // up to 100 before that seq (scroll-back pagination)
       messages = await prisma.message.findMany({
         where: {
-          conversation_id: req.params.id as string,
-          seq: { lt: BigInt(before) },
+          conversation_id: conversationId,
+          seq: { lt: BigInt(before), gt: conversationMember.joined_seq },
         },
         orderBy: { seq: 'desc' },
         take: 100,
       });
     } else if (req.query.since !== undefined) {
       // up to 100 after that seq, ordered by most recent if >100 (reconnect catch-up)
+      const sinceSeq = BigInt(since);
+      const max_seq =
+        sinceSeq > conversationMember.joined_seq ? sinceSeq : conversationMember.joined_seq;
       messages = await prisma.message.findMany({
         where: {
-          conversation_id: req.params.id as string,
-          seq: { gt: BigInt(since) },
+          conversation_id: conversationId,
+          seq: { gt: BigInt(max_seq) },
         },
         orderBy: { seq: 'desc' },
         take: 101,
@@ -161,7 +181,8 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
       // latest 100, no params (initial load)
       messages = await prisma.message.findMany({
         where: {
-          conversation_id: req.params.id as string,
+          conversation_id: conversationId,
+          seq: { gt: conversationMember.joined_seq },
         },
         orderBy: { seq: 'desc' },
         take: 100,
