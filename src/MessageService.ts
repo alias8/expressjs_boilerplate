@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis';
 import { PrismaClient } from './generated/prisma/client';
+import { Message } from './models/models';
 
 export class MessageService {
   constructor(
@@ -7,12 +8,8 @@ export class MessageService {
     private redisPublish: Redis,
   ) {}
 
-  async handleIncoming(parsedMessage: {
-    conversation_id: string;
-    from_user_id: string;
-    body: string;
-  }) {
-    const { conversation_id, from_user_id, body } = parsedMessage;
+  async handleIncoming(parsedMessage: Message) {
+    const { conversation_id, from_user_id, body, type, metadata } = parsedMessage;
     const seq = await this.redisPublish.incr(`conversation:${conversation_id}:seq`);
     const created_at = new Date();
 
@@ -21,6 +18,8 @@ export class MessageService {
         conversation_id,
         from_user_id,
         body,
+        type,
+        metadata,
         seq: BigInt(seq),
       },
     });

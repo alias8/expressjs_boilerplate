@@ -6,6 +6,7 @@ import createError, { HttpError } from 'http-errors';
 
 import usersRouter from './routes/users';
 import usersConversationsRouter from './routes/conversations';
+import mediaRouter from './routes/media';
 
 export const app = express();
 
@@ -16,6 +17,7 @@ app.use(cookieParser());
 
 app.use('/users', usersRouter);
 app.use('/conversations', usersConversationsRouter);
+app.use('/media', mediaRouter);
 
 // 404 handler
 app.use((req: Request, res: Response, next: NextFunction) => {

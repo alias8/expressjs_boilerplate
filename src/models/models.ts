@@ -1,3 +1,5 @@
+import { MessageType } from '../generated/prisma/enums';
+
 export interface User {
   id: string;
   username: string;
@@ -20,6 +22,8 @@ export interface Message {
   conversation_id: string;
   from_user_id: string;
   body: string;
+  type: MessageType;
+  metadata: { url?: string };
   seq: bigint;
   created_at: Date;
 }
