@@ -10,7 +10,8 @@
     "format": "prettier --write src/",
     "migrate": "node-pg-migrate up",
     "migrate:down": "node-pg-migrate down",
-    "seed": "ts-node src/db/seed.ts"
+    "seed": "ts-node src/db/seed.ts",
+    "reset-db": "npx prisma migrate reset --force && npm run seed"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1023.0",
