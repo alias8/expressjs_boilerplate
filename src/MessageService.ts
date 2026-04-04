@@ -1,19 +1,20 @@
 import { Redis } from 'ioredis';
-import { PrismaClient } from './generated/prisma/client';
-import { Message } from './models/models';
+import { MessageType, PrismaClient } from './generated/prisma/client';
+import { ESMessage, Message } from './models/models';
+import { Client } from '@elastic/elasticsearch';
 
 export class MessageService {
   constructor(
     private prisma: PrismaClient,
     private redisPublish: Redis,
+    private elasticSearchClient: Client,
   ) {}
 
   async handleIncoming(parsedMessage: Message) {
     const { conversation_id, from_user_id, body, type, metadata } = parsedMessage;
     const seq = await this.redisPublish.incr(`conversation:${conversation_id}:seq`);
-    const created_at = new Date();
 
-    await this.prisma.message.create({
+    const message = await this.prisma.message.create({
       data: {
         conversation_id,
         from_user_id,
@@ -23,6 +24,24 @@ export class MessageService {
         seq: BigInt(seq),
       },
     });
+
+    this.elasticSearchClient
+      .index<ESMessage>({
+        index: 'messages',
+        id: message.id,
+        document: {
+          conversation_id,
+          from_user_id,
+          body,
+          type,
+          metadata,
+          seq,
+          created_at: message.created_at,
+        },
+      })
+      .catch((err) => {
+        console.error('Failed to index message in Elasticsearch:', err);
+      });
 
     const recipients = await this.prisma.conversationMember.findMany({
       where: {
@@ -41,7 +60,7 @@ export class MessageService {
       recipients.forEach((recipient) => {
         this.redisPublish.publish(
           `user:${recipient.user_id}`,
-          JSON.stringify({ ...parsedMessage, created_at, seq }),
+          JSON.stringify({ ...parsedMessage, created_at: message.created_at, seq }),
         );
       });
     } else {

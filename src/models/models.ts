@@ -27,3 +27,13 @@ export interface Message {
   seq: bigint;
   created_at: Date;
 }
+
+export interface ESMessage {
+  conversation_id: string;
+  from_user_id: string;
+  body: string;
+  type: MessageType;
+  metadata: { url?: string };
+  seq: number;
+  created_at: Date;
+}
