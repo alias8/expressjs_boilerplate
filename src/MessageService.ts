@@ -37,12 +37,22 @@ export class MessageService {
       );
       return;
     }
-
-    recipients.forEach((recipient) => {
+    if (recipients.length < 100) {
+      recipients.forEach((recipient) => {
+        this.redisPublish.publish(
+          `user:${recipient.user_id}`,
+          JSON.stringify({ ...parsedMessage, created_at, seq }),
+        );
+      });
+    } else {
+      // If was large convo:
       this.redisPublish.publish(
-        `user:${recipient.user_id}`,
-        JSON.stringify({ ...parsedMessage, created_at, seq }),
+        `conversation:${conversation_id}`,
+        JSON.stringify({ newMessage: true }),
       );
-    });
+      // Then on the client's side, they would be subscribed to large channels. They would get the message
+      // that there are more messages on the large channel. When they open that channel, the messages are fetched
+      // otherwise, just show an "unread" lozenge next to the channel
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db/prisma';
+import { connectionManager } from '../server';
 
 const router = Router();
 
@@ -152,6 +153,17 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
       return res
         .status(403)
         .json({ error: `Cannot find joined seq for convo id ${conversationId} user ${userId}` });
+    }
+    const largeConvoCheck = await prisma.conversationMember.findMany({
+      where: {
+        conversation_id: conversationId,
+      },
+      take: 101,
+    });
+    if (largeConvoCheck.length > 100) {
+      // Conversations with 100 of more members will have redis fan out to the channelid instead of all the userids in it
+      // So, we now have to sub this server to listen for publishes to this channel
+      connectionManager.subscribeToConversation(conversationId, userId);
     }
     let messages;
     if (req.query.before !== undefined) {

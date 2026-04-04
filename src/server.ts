@@ -23,7 +23,7 @@ server.listen(port, () => {
 
 const wss = new Server({ server });
 
-const connectionManager = new ConnectionManager(redisSubscribe);
+export const connectionManager = new ConnectionManager(redisSubscribe);
 const messageService = new MessageService(prisma, redisPublish);
 
 wss.on('connection', (ws, req) => connectionManager.handleConnection(ws, req, messageService));
