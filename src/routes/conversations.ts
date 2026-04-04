@@ -8,6 +8,29 @@ interface ConversationCreateRequest {
   userIds: string[];
 }
 
+const validateUsers = async (userIds: string[], res: Response): Promise<boolean> => {
+  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
+  if (foundUsers.length !== userIds.length) {
+    res.status(404).json({ error: 'One or more users not found' });
+    return false;
+  }
+  return true;
+};
+
+const subscribeForLargeConvos = async (conversationId: string, userId: string) => {
+  const largeConvoCheck = await prisma.conversationMember.findMany({
+    where: {
+      conversation_id: conversationId,
+    },
+    take: 101,
+  });
+  if (largeConvoCheck.length > 100) {
+    // Conversations with 100 of more members will have redis fan out to the channelid instead of all the userids in it
+    // So, we now have to sub this server to listen for publishes to this channel
+    connectionManager.subscribeToConversation(conversationId, userId);
+  }
+};
+
 // Get conversations for a user, when user logs in and sees the list of convos
 router.get('/', async (req: Request, res: Response) => {
   const userId = req.query.userId as string;
@@ -75,15 +98,6 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(500).json({ error: `Failed to create conversation: ${message}` });
   }
 });
-
-const validateUsers = async (userIds: string[], res: Response): Promise<boolean> => {
-  const foundUsers = await prisma.user.findMany({ where: { id: { in: userIds } } });
-  if (foundUsers.length !== userIds.length) {
-    res.status(404).json({ error: 'One or more users not found' });
-    return false;
-  }
-  return true;
-};
 
 // Add 1 or more users to convo
 router.post('/:conversationId/add/', async (req: Request, res: Response) => {
@@ -154,17 +168,7 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
         .status(403)
         .json({ error: `Cannot find joined seq for convo id ${conversationId} user ${userId}` });
     }
-    const largeConvoCheck = await prisma.conversationMember.findMany({
-      where: {
-        conversation_id: conversationId,
-      },
-      take: 101,
-    });
-    if (largeConvoCheck.length > 100) {
-      // Conversations with 100 of more members will have redis fan out to the channelid instead of all the userids in it
-      // So, we now have to sub this server to listen for publishes to this channel
-      connectionManager.subscribeToConversation(conversationId, userId);
-    }
+    await subscribeForLargeConvos(conversationId, userId);
     let messages;
     if (req.query.before !== undefined) {
       // up to 100 before that seq (scroll-back pagination)
