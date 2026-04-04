@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../db/prisma';
 import * as bcrypt from 'bcryptjs';
 import { Prisma } from '../generated/prisma/client';
+import {
+  createUser,
+  getUserByUserId,
+  getUserByUsername,
+  searchUsersByUsername,
+} from '../utils/db/user';
 
 const router = Router();
 
@@ -22,10 +27,7 @@ router.post('/register', async (req: Request, res: Response) => {
   const { username, password } = req.body as UserLoginRequest;
   try {
     const password_hash = await bcrypt.hash(password, bcryptSaltRounds);
-    const user = await prisma.user.create({
-      data: { username, password_hash },
-      select: { id: true, username: true, created_at: true },
-    });
+    const user = await createUser(username, password_hash);
     res.json({ user });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -39,9 +41,7 @@ router.post('/register', async (req: Request, res: Response) => {
 router.post('/login', async (req: Request, res: Response) => {
   const { username, password } = req.body as UserLoginRequest;
   try {
-    const user = await prisma.user.findUnique({
-      where: { username },
-    });
+    const user = await getUserByUsername(username);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -58,10 +58,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.params.id as string },
-      select: { id: true, username: true },
-    });
+    const user = await getUserByUserId(req.params.id as string);
     if (!user) return res.status(404).json({ error: 'User not found' });
     return res.status(200).json({ user });
   } catch (e) {
@@ -72,10 +69,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const users = await prisma.user.findMany({
-      where: { username: { contains: req.query.username as string } },
-      select: { id: true, username: true },
-    });
+    const users = await searchUsersByUsername(req.query.username as string);
     return res.status(200).json({ users });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';

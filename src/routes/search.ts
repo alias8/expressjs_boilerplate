@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { elasticSearchClient } from '../server';
-import { prisma } from '../db/prisma';
-import { getConversationsIdsForUser } from '../dbUtils';
+import { getConversationsIdsForUser } from '../utils/db/conversationMember';
 
 const router = Router();
 
