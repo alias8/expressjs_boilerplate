@@ -1,5 +1,13 @@
-import { MessageType } from '../generated/prisma/enums';
+const enum TripStatus {
+  REQUESTED = 'REQUESTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
 
+type RATING = 1 | 2 | 3 | 4 | 5;
+
+// Drivers and Riders register as a "user"
 export interface User {
   id: string;
   username: string;
@@ -7,33 +15,30 @@ export interface User {
   created_at: Date;
 }
 
-export interface Conversation {
+export interface Driver {
+  user_id: string; // FK to user DB
+  on_trip: boolean;
+  looking_for_trip: boolean;
+}
+
+export interface Rider {
+  user_id: string; // FK to user DB
+  on_trip: boolean;
+}
+
+export interface Trip {
   id: string;
-  created_at: Date;
+  startGPSLatitude: number;
+  startGPSLongitude: number;
+  endGPSLatitude: number;
+  endGPSLongitude: number;
+  requested_at: Date;
+  requested_by: string; // userid
+  accepted_by?: string; // driverid
+  status: TripStatus;
+  ratingForDriver: RATING;
+  ratingForRider: RATING;
 }
 
-export interface ConversationMember {
-  conversation_id: string;
-  user_id: string;
-}
-
-export interface Message {
-  id: string;
-  conversation_id: string;
-  from_user_id: string;
-  body: string;
-  type: MessageType;
-  metadata: { url?: string };
-  seq: bigint;
-  created_at: Date;
-}
-
-export interface ESMessage {
-  conversation_id: string;
-  from_user_id: string;
-  body: string;
-  type: MessageType;
-  metadata: { url?: string };
-  seq: number;
-  created_at: Date;
-}
+// currentGPSLatitude: number
+// currentGPSLongitude: number

@@ -13,7 +13,6 @@ export class MessageService {
   async handleIncoming(parsedMessage: Message) {
     const { conversation_id, from_user_id, body, type, metadata } = parsedMessage;
     const seq = await this.redisPublish.incr(`conversation:${conversation_id}:seq`);
-
     const message = await this.prisma.message.create({
       data: {
         conversation_id,
