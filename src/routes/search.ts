@@ -4,14 +4,10 @@ import { getConversationsIdsForUser } from '../utils/db/conversationMember';
 
 const router = Router();
 
-interface SearchRequest {
-  text: string;
-}
-
-// Get search messages
+// Search messages for text
 router.get('/', async (req: Request, res: Response) => {
-  const userId = req.query.userId as string;
-  const { text } = req.body as SearchRequest;
+  const userId = req.query.userId as string; // todo: use JWT instead of passing id in the url
+  const text = req.query.text as string;
   if (!userId) {
     res.status(400).json({ error: 'userId is required' });
     return;

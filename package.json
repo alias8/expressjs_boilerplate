@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "port3000": "PORT=3000 npx ts-node src/server.ts",
+    "port3001": "PORT=3001 npx ts-node src/server.ts",
+    "run-elastic-search": "bash ./run-elastic-search.sh",
     "start": "ts-node src/server.ts",
     "build": "tsc",
     "lint": "eslint src/",
