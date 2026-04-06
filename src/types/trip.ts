@@ -32,7 +32,7 @@ export interface TripAvailableMessage {
 
 export interface TripAcceptedMessage {
   type: typeof TRIP_ACCEPTED;
-  requested_by: string;
-  accepted_by: string;
+  rider_id: string;
+  driver_id: string;
   accepted_at: Date;
 }
