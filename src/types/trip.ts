@@ -1,3 +1,5 @@
+import { TripStatus } from '../generated/prisma/enums';
+
 export const HARD_CODED_CITY = 'sydney';
 export const REDIS_TRIP_KEY = 'trip:';
 export const REDIS_TRIPS_AVAILABLE_KEY = `trips:available:${HARD_CODED_CITY}`;
@@ -35,4 +37,10 @@ export interface TripAcceptedMessage {
   rider_id: string;
   driver_id: string;
   accepted_at: Date;
+}
+
+export interface TripUpdatedMessage {
+  type: typeof TRIP_UPDATED;
+  picked_up_at: Date;
+  status: TripStatus;
 }

@@ -6,18 +6,22 @@ import {
   REDIS_TRIPS_AVAILABLE_KEY,
   TRIP_ACCEPTED,
   TRIP_AVAILABLE,
+  TRIP_UPDATED,
   TripAcceptedMessage,
   TripAvailableMessage,
   TripRequest,
+  TripUpdatedMessage,
 } from '../types/trip';
-import { DriverStatus, TripStatus } from '../generated/prisma/enums';
+import { TripStatus } from '../generated/prisma/enums';
+import { riderCanRequest, userIdValid, userIsDriver } from '../utils/db/user';
 
 const router = Router();
 
 // Request a trip
 router.post('/', async (req: Request, res: Response) => {
   if (!(await userIdValid(req, res))) return;
-  if (!(await userCanRequest(req, res))) return;
+  if (!(await riderCanRequest(req, res))) return;
+
   const userId = req.query.userId as string;
   const { startGPSLatitude, startGPSLongitude, endGPSLatitude, endGPSLongitude } =
     req.body as TripRequest;
@@ -60,11 +64,9 @@ router.post('/', async (req: Request, res: Response) => {
 // Accept a trip
 router.put('/:tripId', async (req: Request, res: Response) => {
   if (!(await userIdValid(req, res))) return;
-  if (!(await userCanRequest(req, res))) return;
-  const userId = req.query.userId as string; // would come from jwt in real life
+  const { isDriver, driverId } = await userIsDriver(req, res);
+  if (!isDriver) return;
   const tripId = req.params.tripId as string;
-  const driverId = await prisma.driver.findFirst({ where: { user_id: userId } });
-  if (!driverId) return res.status(400).json({ error: 'User is not a driver' });
 
   try {
     return prisma.$transaction(async (tx) => {
@@ -77,9 +79,9 @@ router.put('/:tripId', async (req: Request, res: Response) => {
       const trip = await tx.trip.update({
         where: { id: tripId, status: TripStatus.REQUESTED },
         data: {
-          driver_id: userId,
+          driver_id: driverId,
           accepted_at: new Date(),
-          status: TripStatus.IN_PROGRESS,
+          status: TripStatus.ACCEPTED,
         },
       });
       redisPublish.publish(
@@ -87,7 +89,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         JSON.stringify({
           type: TRIP_ACCEPTED,
           rider_id: trip.rider_id,
-          driver_id: userId,
+          driver_id: driverId,
           accepted_at: new Date(),
         } as TripAcceptedMessage),
       );
@@ -99,45 +101,42 @@ router.put('/:tripId', async (req: Request, res: Response) => {
   }
 });
 
-async function userIdValid(req: Request, res: Response) {
-  const userId = req.query.userId as string; // would come from jwt in real life
+// Pick up passenger
+router.put('/:tripId/pickup', async (req: Request, res: Response) => {
+  if (!(await userIdValid(req, res))) return;
+  const { isDriver, driverId } = await userIsDriver(req, res);
+  if (!isDriver) return;
+  const tripId = req.params.tripId as string;
 
-  if (!userId) {
-    res.status(400).json({ error: 'userId is required' });
-    return false;
+  try {
+    return prisma.$transaction(async (tx) => {
+      const tripAvailable = await tx.trip.findFirst({
+        where: { id: tripId, status: TripStatus.ACCEPTED, driver_id: driverId },
+      });
+      if (!tripAvailable) {
+        return res.status(400).json({ error: 'Trip not available' });
+      }
+      const trip = await tx.trip.update({
+        where: { id: tripId, status: TripStatus.ACCEPTED },
+        data: {
+          status: TripStatus.IN_PROGRESS,
+          picked_up_at: new Date(),
+        },
+      });
+      redisPublish.publish(
+        `${REDIS_TRIP_KEY}${tripId}`,
+        JSON.stringify({
+          type: TRIP_UPDATED,
+          status: TripStatus.IN_PROGRESS,
+          picked_up_at: new Date(),
+        } as TripUpdatedMessage),
+      );
+      return res.status(200).json({ trip: trip.id });
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    res.status(500).json({ error: `Internal server error: ${message}` });
   }
-  const userExists = await prisma.user.findFirst({
-    where: { user_id: userId },
-  });
-  if (!userExists) {
-    res.status(400).json({ error: 'userId not found' });
-    return false;
-  }
-  return true;
-}
-
-async function userCanRequest(req: Request, res: Response) {
-  const userId = req.query.userId as string; // would come from jwt in real life
-
-  const isActiveDriver = await prisma.driver.findFirst({
-    where: {
-      user_id: userId,
-      driver_status: { not: DriverStatus.OFF_DUTY },
-    },
-  });
-  if (isActiveDriver?.driver_id) {
-    res.status(400).json({ error: 'Cannot request a ride while on duty as a driver' });
-    return false;
-  }
-
-  const onTripAlready = await prisma.trip.findFirst({
-    where: { rider_id: userId, status: TripStatus.IN_PROGRESS },
-  });
-  if (onTripAlready) {
-    res.status(400).json({ error: 'Cannot request a ride while already on a trip' });
-    return false;
-  }
-  return true;
-}
+});
 
 export default router;

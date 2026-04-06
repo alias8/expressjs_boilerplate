@@ -41,6 +41,7 @@ model Trip {
   endGPSLongitude   Decimal    @db.Decimal(9, 6)
   requested_at      DateTime
   accepted_at       DateTime?
+  picked_up_at       DateTime?
   status            TripStatus
   ratingForDriver   Rating?
   ratingForRider    Rating?
@@ -62,6 +63,7 @@ enum Rating {
 
 enum TripStatus {
   REQUESTED
+  ACCEPTED
   IN_PROGRESS
   COMPLETED
   CANCELLED
