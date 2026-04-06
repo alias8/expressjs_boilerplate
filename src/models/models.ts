@@ -38,6 +38,3 @@ export interface Trip {
   ratingForDriver?: RATING;
   ratingForRider?: RATING;
 }
-
-// currentGPSLatitude: number
-// currentGPSLongitude: number

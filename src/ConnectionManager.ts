@@ -1,10 +1,12 @@
 import { Redis } from 'ioredis';
 import { WebSocket as WsWebSocket, WebSocket } from 'ws';
 import { URL } from 'node:url';
-import { Message } from './models/models';
 import http from 'http';
 import { MessageService } from './MessageService';
-import { prisma } from './db/prisma';
+import { HARD_CODED_CITY } from './routes/trip';
+
+export const REDIS_TRIP_KEY = 'trip:';
+export const REDIS_TRIPS_AVAILABLE_KEY = `trips:available:${HARD_CODED_CITY}`;
 
 export class ConnectionManager {
   // userId: Websocket map
@@ -14,16 +16,13 @@ export class ConnectionManager {
 
   constructor(private redisSubscribe: Redis) {
     this.redisSubscribe.on('messageBuffer', async (channel, message) => {
-      if (channel.toString().startsWith('user:')) {
-        // 4. Redis received a message from userA to userB. Only the 1 server that userB is on will run this listener
-        // For small convos, send to userId
-        const recipientUserId = channel.toString().replace('user:', '');
-        this.getSocket(recipientUserId)?.send(message.toString());
-      } else if (channel.toString().startsWith('conversation:')) {
-        // 4. Redis received a message from userA to conversation:123.
-        // For large convos, send to entire conversation
-        const recipientConversationId = channel.toString().replace('conversation:', '');
-        const userIds = this.conversationIdToUsersMap.get(recipientConversationId) ?? [];
+      if (channel.toString().startsWith(REDIS_TRIP_KEY)) {
+        // Rider gets updates on a trip
+        const tripId = channel.toString().replace(REDIS_TRIP_KEY, '');
+        this.getSocket(tripId)?.send(message.toString());
+      } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
+        // Drivers are told a new trip is available
+        const userIds = this.conversationIdToUsersMap.get(REDIS_TRIPS_AVAILABLE_KEY) ?? [];
         for (const userId of userIds) {
           this.getSocket(userId)?.send(message.toString());
         }
@@ -66,13 +65,13 @@ export class ConnectionManager {
       2. userA's client sends a JSON frame over their WebSocket:
       { "conversation_id": "123", "from_user_id": "A", "body": "hey!" }
       * */
-      try {
-        const parsedMessage: Message = JSON.parse(message.toString());
-        await messageService.handleIncoming(parsedMessage);
-      } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-        console.error(`Error when handling message, ${errorMessage}`);
-      }
+      // try {
+      //   const parsedMessage: Message = JSON.parse(message.toString());
+      //   await messageService.handleIncoming(parsedMessage);
+      // } catch (e) {
+      //   const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      //   console.error(`Error when handling message, ${errorMessage}`);
+      // }
     });
   }
 
@@ -83,21 +82,21 @@ export class ConnectionManager {
   }
 
   async remove(userId: string) {
-    // 1. Remove userId from websocket connection map
-    this.userIdToWsConnectionMap.delete(userId);
-    // 2. Remove user from redis subscription
-    this.redisSubscribe.unsubscribe(`user:${userId}`);
-
-    // 3. Update conversationIdToUsersMap. If the user is a part of any of those conversations, update the Map
-    for (const [conversation_id, userSet] of this.conversationIdToUsersMap) {
-      if (userSet.has(userId)) {
-        userSet.delete(userId);
-        if (userSet.size === 0) {
-          this.redisSubscribe.unsubscribe(`conversation:${conversation_id}`);
-          this.conversationIdToUsersMap.delete(conversation_id);
-        }
-      }
-    }
+    // // 1. Remove userId from websocket connection map
+    // this.userIdToWsConnectionMap.delete(userId);
+    // // 2. Remove user from redis subscription
+    // this.redisSubscribe.unsubscribe(`user:${userId}`);
+    //
+    // // 3. Update conversationIdToUsersMap. If the user is a part of any of those conversations, update the Map
+    // for (const [conversation_id, userSet] of this.conversationIdToUsersMap) {
+    //   if (userSet.has(userId)) {
+    //     userSet.delete(userId);
+    //     if (userSet.size === 0) {
+    //       this.redisSubscribe.unsubscribe(`conversation:${conversation_id}`);
+    //       this.conversationIdToUsersMap.delete(conversation_id);
+    //     }
+    //   }
+    // }
   }
 
   getUserId(ws: WebSocket, req: http.IncomingMessage) {

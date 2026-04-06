@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db/prisma';
 import { TripStatus } from '../models/models';
-import { redisPublish } from '../server';
+import { redisPublish, redisSubscribe } from '../server';
+import { REDIS_TRIP_KEY } from '../ConnectionManager';
 
 const router = Router();
 
-const HARD_CODED_CITY = 'sydney';
+export const HARD_CODED_CITY = 'sydney';
 
 interface TripRequest {
   startGPSLatitude: number;
@@ -47,6 +48,7 @@ router.post('/', async (req: Request, res: Response) => {
         status: TripStatus.REQUESTED,
       },
     });
+    // Publish to drivers listening for this
     redisPublish.publish(
       // we are just hardcoding to 1 city atm, but we want to be able to publish to the nearest big city
       `trips:available:${HARD_CODED_CITY}`,
@@ -60,6 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
         requested_by: userId,
       }),
     );
+    redisSubscribe.subscribe(`${REDIS_TRIP_KEY}${trip.id}`); // Listen for updates on this trip
     return res.status(200).json({ trip: trip.id });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
@@ -106,7 +109,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         },
       });
       redisPublish.publish(
-        `trips:${tripId}`,
+        `${REDIS_TRIP_KEY}${tripId}`,
         JSON.stringify({
           accepted_by: userId,
           accepted_at: new Date(),
@@ -143,3 +146,5 @@ export async function riderIsOnTrip(riderUserId: string) {
     where: { accepted_by: riderUserId, status: TripStatus.IN_PROGRESS },
   });
 }
+
+export default router;
