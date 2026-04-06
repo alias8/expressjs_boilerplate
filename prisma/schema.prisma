@@ -12,49 +12,56 @@ datasource db {
   provider = "postgresql"
 }
 
-enum MessageType {
-  text
-  image
-}
-
 model User {
-  id                 String               @id @default(uuid())
-  username           String               @unique
-  password_hash      String
-  created_at         DateTime             @default(now())
-  messages           Message[] // the relation field (not a DB column, just for Prisma)
-  conversationMember ConversationMember[] // the relation field (not a DB column, just for Prisma)
+  user_id       String   @id @default(uuid())
+  username      String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+  Driver        Driver[]
+  tripsAsRider  Trip[]   @relation("TripRider")
+  tripsAsDriver Trip[]   @relation("TripDriver")
 }
 
-model Conversation {
-  id                 String               @id @default(uuid())
-  created_at         DateTime             @default(now())
-  messages           Message[] // the relation field (not a DB column, just for Prisma)
-  conversationMember ConversationMember[] // the relation field (not a DB column, just for Prisma)
+model Driver {
+  driver_id String @id @default(uuid())
+
+  user_id String // FK column — matches User.user_id type (String)
+  user    User   @relation(fields: [user_id], references: [user_id])
+
+  looking_for_trip Boolean
+  vehicle_plate    String
 }
 
-// Junction table of Conversation and User
-model ConversationMember {
-  id              String       @id @default(uuid())
-  joined_seq      BigInt
-  left_seq        BigInt?
-  conversation_id String
-  conversation    Conversation @relation(fields: [conversation_id], references: [id]) // the relation field (not a DB column, just for Prisma)
-  user_id         String
-  user            User         @relation(fields: [user_id], references: [id]) // the relation field (not a DB column, just for Prisma)
+model Trip {
+  id                String     @id @default(uuid())
+  startGPSLatitude  Decimal    @db.Decimal(9, 6)
+  startGPSLongitude Decimal    @db.Decimal(9, 6)
+  endGPSLatitude    Decimal    @db.Decimal(9, 6)
+  endGPSLongitude   Decimal    @db.Decimal(9, 6)
+  requested_at      DateTime
+  accepted_at       DateTime?
+  status            TripStatus
+  ratingForDriver   Rating?
+  ratingForRider    Rating?
 
-  @@unique([conversation_id, user_id, joined_seq])
+  rider_id     String // FK column — matches User.user_id type (String)
+  requested_by User   @relation("TripRider", fields: [rider_id], references: [user_id])
+
+  driver_id   String? // FK column — matches User.user_id type (String)
+  accepted_by User?   @relation("TripDriver", fields: [driver_id], references: [user_id])
 }
 
-model Message {
-  id              String       @id @default(uuid())
-  conversation_id String
-  conversation    Conversation @relation(fields: [conversation_id], references: [id]) // the relation field (not a DB column, just for Prisma)
-  from_user_id    String
-  user            User         @relation(fields: [from_user_id], references: [id]) // the relation field (not a DB column, just for Prisma)
-  body            String?
-  type            MessageType
-  metadata        Json?
-  seq             BigInt
-  created_at      DateTime     @default(now())
+enum Rating {
+  ONE
+  TWO
+  THREE
+  FOUR
+  FIVE
+}
+
+enum TripStatus {
+  REQUESTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }

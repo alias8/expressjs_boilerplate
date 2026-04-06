@@ -6,12 +6,6 @@ import { MessageService } from './MessageService';
 import { HARD_CODED_CITY, TripAcceptedMessage } from './routes/trip';
 import { UserType } from './models/models';
 
-export const REDIS_TRIP_KEY = 'trip:';
-export const REDIS_TRIPS_AVAILABLE_KEY = `trips:available:${HARD_CODED_CITY}`;
-export const TRIP_AVAILABLE = 'TRIP_AVAILABLE';
-export const TRIP_ACCEPTED = 'TRIP_ACCEPTED';
-export const TRIP_UPDATED = 'TRIP_UPDATED';
-
 export class ConnectionManager {
   // userId: Websocket map
   private riderUserIdToWsConnectionMap = new Map<string, WsWebSocket>();

@@ -7,36 +7,12 @@ import {
   REDIS_TRIPS_AVAILABLE_KEY,
   TRIP_ACCEPTED,
   TRIP_AVAILABLE,
-} from '../ConnectionManager';
+  TripAcceptedMessage,
+  TripAvailableMessage,
+  TripRequest,
+} from '../types/trip';
 
 const router = Router();
-
-export const HARD_CODED_CITY = 'sydney';
-
-interface TripRequest {
-  startGPSLatitude: number;
-  startGPSLongitude: number;
-  endGPSLatitude: number;
-  endGPSLongitude: number;
-}
-
-export interface TripAvailableMessage {
-  type: typeof TRIP_AVAILABLE;
-  tripId: string;
-  startGPSLatitude: number;
-  startGPSLongitude: number;
-  endGPSLatitude: number;
-  endGPSLongitude: number;
-  requested_at: Date;
-  requested_by: string;
-}
-
-export interface TripAcceptedMessage {
-  type: typeof TRIP_ACCEPTED;
-  requested_by: string;
-  accepted_by: string;
-  accepted_at: Date;
-}
 
 // Request a trip
 router.post('/', async (req: Request, res: Response) => {
@@ -53,8 +29,8 @@ router.post('/', async (req: Request, res: Response) => {
   if (!userExists) {
     return res.status(400).json({ error: 'userId not found' });
   }
-  const available = await riderIsOnTrip(userId);
-  if (!available) {
+  const onTripAlready = await riderIsOnTrip(userId);
+  if (onTripAlready) {
     return res.status(400).json({ error: 'userId is on trip already' });
   }
   try {
@@ -108,8 +84,8 @@ router.put('/:tripId', async (req: Request, res: Response) => {
   if (!userExists) {
     return res.status(400).json({ error: 'userId not found' });
   }
-  const available = await driverIsOnTrip(userId);
-  if (!available) {
+  const onTripAlready = await driverIsOnTrip(userId);
+  if (onTripAlready) {
     return res.status(400).json({ error: 'userId is on trip already' });
   }
   try {
