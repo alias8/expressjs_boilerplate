@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { prisma } from '../db/prisma';
 import { TripStatus } from '../models/models';
 import { redisPublish, redisSubscribe } from '../server';
@@ -7,7 +7,6 @@ import {
   REDIS_TRIPS_AVAILABLE_KEY,
   TRIP_ACCEPTED,
   TRIP_AVAILABLE,
-  TRIP_UPDATED,
 } from '../ConnectionManager';
 
 const router = Router();
@@ -54,9 +53,7 @@ router.post('/', async (req: Request, res: Response) => {
   if (!userExists) {
     return res.status(400).json({ error: 'userId not found' });
   }
-  const available = await prisma.rider.findFirst({
-    where: { user_id: userId, on_trip: false },
-  });
+  const available = await riderIsOnTrip(userId);
   if (!available) {
     return res.status(400).json({ error: 'userId is on trip already' });
   }
@@ -111,9 +108,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
   if (!userExists) {
     return res.status(400).json({ error: 'userId not found' });
   }
-  const available = await prisma.driver.findFirst({
-    where: { user_id: userId, on_trip: false },
-  });
+  const available = await driverIsOnTrip(userId);
   if (!available) {
     return res.status(400).json({ error: 'userId is on trip already' });
   }
@@ -136,6 +131,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
       redisPublish.publish(
         `${REDIS_TRIP_KEY}${tripId}`,
         JSON.stringify({
+          type: TRIP_ACCEPTED,
           requested_by: trip.requested_by,
           accepted_by: userId,
           accepted_at: new Date(),
@@ -156,7 +152,7 @@ export async function driverIsOnTrip(driverUserId: string) {
   if (!isDriver) {
     throw Error(`Driver id not found ${driverUserId}`);
   }
-  return await prisma.trips.findFirst({
+  return await prisma.trip.findFirst({
     where: { accepted_by: driverUserId, status: TripStatus.IN_PROGRESS },
   });
 }
@@ -168,8 +164,8 @@ export async function riderIsOnTrip(riderUserId: string) {
   if (!isRider) {
     throw Error(`Rider id not found ${riderUserId}`);
   }
-  return await prisma.trips.findFirst({
-    where: { accepted_by: riderUserId, status: TripStatus.IN_PROGRESS },
+  return await prisma.trip.findFirst({
+    where: { requested_by: riderUserId, status: TripStatus.IN_PROGRESS },
   });
 }
 

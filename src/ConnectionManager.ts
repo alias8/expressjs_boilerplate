@@ -3,12 +3,7 @@ import { WebSocket as WsWebSocket, WebSocket } from 'ws';
 import { URL } from 'node:url';
 import http from 'http';
 import { MessageService } from './MessageService';
-import {
-  HARD_CODED_CITY,
-  RedisPublishMessage,
-  TripAcceptedMessage,
-  TripAvailableMessage,
-} from './routes/trip';
+import { HARD_CODED_CITY, TripAcceptedMessage } from './routes/trip';
 import { UserType } from './models/models';
 
 export const REDIS_TRIP_KEY = 'trip:';
@@ -30,7 +25,7 @@ export class ConnectionManager {
         const parsedMessages = JSON.parse(message.toString());
         if (parsedMessages.type === TRIP_ACCEPTED) {
           const riderId = (parsedMessages as TripAcceptedMessage).requested_by;
-          this.getRiderSocket(riderId)?.send(message.toString());
+          this.riderUserIdToWsConnectionMap.get(riderId)?.send(message.toString());
         }
       } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
         // Drivers are told a new trip is available
@@ -110,23 +105,5 @@ export class ConnectionManager {
       return;
     }
     return { userId, userType };
-  }
-
-  getRiderSocket(userId: string) {
-    return this.riderUserIdToWsConnectionMap.get(userId);
-  }
-
-  getDriverSocket(userId: string) {
-    return this.driverUserIdToWsConnectionMap.get(userId);
-  }
-
-  subscribeToConversation(conversationId: string, userId: string) {
-    const currentUsersInConvo = this.conversationIdToUsersMap.get(conversationId);
-    if (currentUsersInConvo === undefined) {
-      this.conversationIdToUsersMap.set(conversationId, new Set([userId]));
-      this.redisSubscribe.subscribe(`conversation:${conversationId}`);
-    } else {
-      this.conversationIdToUsersMap.set(conversationId, currentUsersInConvo.add(userId));
-    }
   }
 }
