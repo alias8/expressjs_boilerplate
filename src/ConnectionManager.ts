@@ -3,104 +3,92 @@ import { WebSocket as WsWebSocket, WebSocket } from 'ws';
 import { URL } from 'node:url';
 import http from 'http';
 import { MessageService } from './MessageService';
-import { HARD_CODED_CITY } from './routes/trip';
+import {
+  HARD_CODED_CITY,
+  RedisPublishMessage,
+  TripAcceptedMessage,
+  TripAvailableMessage,
+} from './routes/trip';
+import { UserType } from './models/models';
 
 export const REDIS_TRIP_KEY = 'trip:';
 export const REDIS_TRIPS_AVAILABLE_KEY = `trips:available:${HARD_CODED_CITY}`;
+export const TRIP_AVAILABLE = 'TRIP_AVAILABLE';
+export const TRIP_ACCEPTED = 'TRIP_ACCEPTED';
+export const TRIP_UPDATED = 'TRIP_UPDATED';
 
 export class ConnectionManager {
   // userId: Websocket map
-  private userIdToWsConnectionMap = new Map<string, WsWebSocket>();
-  // a map of conversationId → Set of userIds connected on this server
-  private conversationIdToUsersMap = new Map<string, Set<string>>();
+  private riderUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
+  private driverUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
 
   constructor(private redisSubscribe: Redis) {
+    this.redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_KEY);
     this.redisSubscribe.on('messageBuffer', async (channel, message) => {
       if (channel.toString().startsWith(REDIS_TRIP_KEY)) {
         // Rider gets updates on a trip
-        const tripId = channel.toString().replace(REDIS_TRIP_KEY, '');
-        this.getSocket(tripId)?.send(message.toString());
+        const parsedMessages = JSON.parse(message.toString());
+        if (parsedMessages.type === TRIP_ACCEPTED) {
+          const riderId = (parsedMessages as TripAcceptedMessage).requested_by;
+          this.getRiderSocket(riderId)?.send(message.toString());
+        }
       } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
         // Drivers are told a new trip is available
-        const userIds = this.conversationIdToUsersMap.get(REDIS_TRIPS_AVAILABLE_KEY) ?? [];
-        for (const userId of userIds) {
-          this.getSocket(userId)?.send(message.toString());
-        }
+        this.driverUserIdToWsConnectionMap.forEach((driver) => {
+          driver.send(message.toString());
+        });
       }
     });
   }
 
   /*
    1. Connection setup (before the message)
-  Both users connected earlier via WebSocket to ws://localhost:3000?userId=A and ws://localhost:3001?userId=B.
+  users connected earlier via WebSocket to ws://localhost:3000?userId=A
   When each connected, ConnectionManager.add() did two things:
   - Stored their socket in userIdToWsConnectionMap (userId → ws)
   - Subscribed Redis to the channel user:<userId> for that user
   * */
   handleConnection(ws: WebSocket, req: http.IncomingMessage, messageService: MessageService) {
-    const userId = this.getUserId(ws, req);
-    if (userId) {
-      this.add(userId, ws);
-      this.handleMessages(ws, messageService);
-      this.handleCloseConnection(ws, userId);
+    const { userId, userType } = this.getUserId(ws, req) ?? {};
+    if (userId && userType) {
+      this.add(userId, userType, ws);
+      this.handleIncomingWebsocketMessages(ws, messageService);
+      this.handleCloseConnection(ws, userId, userType);
     }
   }
 
-  add(userId: string, ws: WebSocket) {
-    this.userIdToWsConnectionMap.set(userId, ws);
-    this.redisSubscribe.subscribe(`user:${userId}`, (err, count) => {
-      if (err) {
-        console.error('Failed to subscribe: %s', err.message);
-      } else {
-        console.log(
-          `Subscribed successfully! This client is currently subscribed to ${count} channels.`,
-        );
-      }
-    });
+  add(userId: string, userType: UserType, ws: WebSocket) {
+    if (userType === UserType.DRIVER) {
+      this.driverUserIdToWsConnectionMap.set(userId, ws);
+    } else if (userType === UserType.RIDER) {
+      this.riderUserIdToWsConnectionMap.set(userId, ws);
+      // todo: do riders need to sub to anything yet?
+    }
   }
 
-  handleMessages(ws: WebSocket, messageService: MessageService) {
+  handleIncomingWebsocketMessages(ws: WebSocket, messageService: MessageService) {
     ws.on('message', async (message) => {
-      /*
-      2. userA's client sends a JSON frame over their WebSocket:
-      { "conversation_id": "123", "from_user_id": "A", "body": "hey!" }
-      * */
-      // try {
-      //   const parsedMessage: Message = JSON.parse(message.toString());
-      //   await messageService.handleIncoming(parsedMessage);
-      // } catch (e) {
-      //   const errorMessage = e instanceof Error ? e.message : 'Unknown error';
-      //   console.error(`Error when handling message, ${errorMessage}`);
-      // }
+      // todo: when rider or driver send a message over websocket to the server, handle it here
     });
   }
 
-  handleCloseConnection(ws: WebSocket, userId: string) {
+  handleCloseConnection(ws: WebSocket, userId: string, userType: UserType) {
     ws.on('close', async () => {
-      await this.remove(userId);
+      await this.remove(userId, userType);
     });
   }
 
-  async remove(userId: string) {
-    // // 1. Remove userId from websocket connection map
-    // this.userIdToWsConnectionMap.delete(userId);
-    // // 2. Remove user from redis subscription
-    // this.redisSubscribe.unsubscribe(`user:${userId}`);
-    //
-    // // 3. Update conversationIdToUsersMap. If the user is a part of any of those conversations, update the Map
-    // for (const [conversation_id, userSet] of this.conversationIdToUsersMap) {
-    //   if (userSet.has(userId)) {
-    //     userSet.delete(userId);
-    //     if (userSet.size === 0) {
-    //       this.redisSubscribe.unsubscribe(`conversation:${conversation_id}`);
-    //       this.conversationIdToUsersMap.delete(conversation_id);
-    //     }
-    //   }
-    // }
+  async remove(userId: string, userType: UserType) {
+    // 1. Remove userId from websocket connection map
+    if (userType === UserType.RIDER) {
+      this.riderUserIdToWsConnectionMap.delete(userId);
+    } else if (userType === UserType.DRIVER) {
+      this.driverUserIdToWsConnectionMap.delete(userId);
+    }
   }
 
   getUserId(ws: WebSocket, req: http.IncomingMessage) {
-    // client connects to ws://localhost:3000?userId=A
+    // client connects to ws://localhost:3000?userId=A&userType=driver
     const { url } = req;
     if (!url) {
       console.error(`No url in websocket req, closing connection`);
@@ -115,11 +103,21 @@ export class ConnectionManager {
       ws.close();
       return;
     }
-    return userId;
+    const userType = params.get('userType');
+    if (userType === null || !Object.values(UserType).includes(userType)) {
+      console.error(`No userType in websocket url ${url}, closing connection`);
+      ws.close();
+      return;
+    }
+    return { userId, userType };
   }
 
-  getSocket(recipientUserId: string) {
-    return this.userIdToWsConnectionMap.get(recipientUserId);
+  getRiderSocket(userId: string) {
+    return this.riderUserIdToWsConnectionMap.get(userId);
+  }
+
+  getDriverSocket(userId: string) {
+    return this.driverUserIdToWsConnectionMap.get(userId);
   }
 
   subscribeToConversation(conversationId: string, userId: string) {

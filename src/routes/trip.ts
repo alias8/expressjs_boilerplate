@@ -2,7 +2,13 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../db/prisma';
 import { TripStatus } from '../models/models';
 import { redisPublish, redisSubscribe } from '../server';
-import { REDIS_TRIP_KEY } from '../ConnectionManager';
+import {
+  REDIS_TRIP_KEY,
+  REDIS_TRIPS_AVAILABLE_KEY,
+  TRIP_ACCEPTED,
+  TRIP_AVAILABLE,
+  TRIP_UPDATED,
+} from '../ConnectionManager';
 
 const router = Router();
 
@@ -13,6 +19,24 @@ interface TripRequest {
   startGPSLongitude: number;
   endGPSLatitude: number;
   endGPSLongitude: number;
+}
+
+export interface TripAvailableMessage {
+  type: typeof TRIP_AVAILABLE;
+  tripId: string;
+  startGPSLatitude: number;
+  startGPSLongitude: number;
+  endGPSLatitude: number;
+  endGPSLongitude: number;
+  requested_at: Date;
+  requested_by: string;
+}
+
+export interface TripAcceptedMessage {
+  type: typeof TRIP_ACCEPTED;
+  requested_by: string;
+  accepted_by: string;
+  accepted_at: Date;
 }
 
 // Request a trip
@@ -51,8 +75,9 @@ router.post('/', async (req: Request, res: Response) => {
     // Publish to drivers listening for this
     redisPublish.publish(
       // we are just hardcoding to 1 city atm, but we want to be able to publish to the nearest big city
-      `trips:available:${HARD_CODED_CITY}`,
+      REDIS_TRIPS_AVAILABLE_KEY,
       JSON.stringify({
+        type: TRIP_AVAILABLE,
         tripId: trip.id,
         startGPSLatitude,
         startGPSLongitude,
@@ -60,7 +85,7 @@ router.post('/', async (req: Request, res: Response) => {
         endGPSLongitude,
         requested_at: new Date(),
         requested_by: userId,
-      }),
+      } as TripAvailableMessage),
     );
     redisSubscribe.subscribe(`${REDIS_TRIP_KEY}${trip.id}`); // Listen for updates on this trip
     return res.status(200).json({ trip: trip.id });
@@ -111,9 +136,10 @@ router.put('/:tripId', async (req: Request, res: Response) => {
       redisPublish.publish(
         `${REDIS_TRIP_KEY}${tripId}`,
         JSON.stringify({
+          requested_by: trip.requested_by,
           accepted_by: userId,
           accepted_at: new Date(),
-        }),
+        } as TripAcceptedMessage),
       );
       return res.status(200).json({ trip: trip.id });
     });

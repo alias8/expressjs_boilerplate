@@ -5,6 +5,13 @@ export const enum TripStatus {
   CANCELLED = 'CANCELLED',
 }
 
+const UserType = {
+  DRIVER: 'DRIVER',
+  RIDER: 'RIDER',
+} as const;
+
+type UserType = (typeof UserType)[keyof typeof UserType];
+
 export type RATING = 1 | 2 | 3 | 4 | 5;
 
 // Drivers and Riders register as a "user"
