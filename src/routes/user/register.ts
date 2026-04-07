@@ -19,7 +19,7 @@ const bcryptSaltRounds = 10;
     "password": "password1"
 }
 * */
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   const { username, password, user_type } = req.body as UserLoginRequest;
   try {
     const password_hash = await bcrypt.hash(password, bcryptSaltRounds);

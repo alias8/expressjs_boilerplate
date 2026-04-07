@@ -13,8 +13,9 @@ export const app = express();
 app.use(cors());
 app.use(logger('dev'));
 app.use(express.json());
-app.use(authenticateJwtToken);
 app.use(cookieParser());
+app.use(authenticateJwtToken);
+
 app.use('/users', usersRouter);
 app.use('/trip', tripRouter); // protected route
 

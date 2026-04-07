@@ -13,7 +13,7 @@ interface UserLoginRequest {
   user_type: UserType;
 }
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   const { username, password } = req.body as UserLoginRequest;
   try {
     const user = await getUserByUsername(username);
