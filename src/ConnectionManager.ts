@@ -13,6 +13,8 @@ import {
 } from './types/trip';
 import { redisPublish } from './server';
 import { UserType } from './generated/prisma/enums';
+import jwt from 'jsonwebtoken';
+import { JwtUberToken } from './types/express';
 
 export class ConnectionManager {
   // userId: Websocket map
@@ -51,8 +53,9 @@ export class ConnectionManager {
   - Subscribed Redis to the channel user:<userId> for that user
   * */
   handleConnection(ws: WebSocket, req: http.IncomingMessage, messageService: MessageService) {
-    const { userId, userType } = this.getUserId(ws, req) ?? {};
-    if (userId && userType) {
+    const verify = this.getUserId(ws, req);
+    if (verify) {
+      const { userId, userType } = verify;
       this.add(userId, userType, ws);
       this.handleIncomingWebsocketMessages(ws, messageService);
       this.handleCloseConnection(ws, userId, userType);
@@ -76,7 +79,6 @@ export class ConnectionManager {
           // when drivers send location updates about trip:uuid
           // todo: get info from jwt
           const { tripId } = parsedMessage as TripUpdatedMessage;
-
           redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(parsedMessage));
         }
       } catch (e) {
@@ -101,29 +103,40 @@ export class ConnectionManager {
     }
   }
 
-  getUserId(ws: WebSocket, req: http.IncomingMessage) {
-    // client connects to ws://localhost:3000?userId=A&userType=driver
+  getUserId(
+    ws: WebSocket,
+    req: http.IncomingMessage,
+  ): false | { userId: string; userType: UserType } {
     const { url } = req;
     if (!url) {
       console.error(`No url in websocket req, closing connection`);
       ws.close();
-      return;
+      return false;
     }
     const myUrl = new URL(url, 'http://localhost:3000');
     const params = myUrl.searchParams;
-    const userId = params.get('userId');
-    if (!userId) {
-      console.error(`No userid in websocket url ${url}, closing connection`);
-      ws.close();
-      return;
+    const jwtToken = params.get('token');
+    if (!jwtToken) {
+      console.error(`Jwt token not present in url`);
+      return false;
     }
-    const userType = params.get('userType');
-    if (userType === null || (userType !== UserType.DRIVER && userType !== UserType.RIDER)) {
-      console.error(`No userType in websocket url ${url}, closing connection`);
-      ws.close();
-      return;
+
+    try {
+      const decodedToken = jwt.verify(jwtToken, process.env.JWT_SECRET!);
+      if (typeof decodedToken != 'string' && decodedToken !== undefined) {
+        const { userId, userType } = decodedToken as JwtUberToken;
+        if (userType !== UserType.DRIVER && userType !== UserType.RIDER) {
+          console.error(`userType in jwt must be ${UserType.DRIVER} or ${UserType.RIDER}`);
+          return false;
+        }
+        return { userId, userType: userType as UserType };
+      }
+      return false;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      console.error(`Error during websocket connection ${message}`);
+      return false;
     }
-    return { userId, userType };
   }
 
   sendMessageToRiderWebSocket(riderId: string, message: string) {
