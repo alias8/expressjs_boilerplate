@@ -3,11 +3,13 @@ import { prisma } from '../../db/prisma';
 import { redisPublish } from '../../server';
 import {
   REDIS_TRIP_CHANNEL,
+  REDIS_TRIPS_AVAILABLE_CHANNEL,
   TRIP_UPDATED_PICKED_UP,
   TripUpdatedPickUpMessage,
 } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
+import { publishToRedis } from '../../utils/redis';
 
 const router = Router();
 
@@ -46,10 +48,10 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
         picked_up_at: new Date(),
         tripId,
         rider_id: trip.rider_id,
-        currentGPSLatitude: parseFloat(currentGPSLatitude),
-        currentGPSLongitude: parseFloat(currentGPSLongitude),
+        currentGPSLatitude,
+        currentGPSLongitude,
       };
-      redisPublish.publish(`${REDIS_TRIP_CHANNEL}${tripId}`, JSON.stringify(messageToSend));
+      publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend);
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {

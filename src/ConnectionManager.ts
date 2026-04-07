@@ -25,7 +25,7 @@ export class ConnectionManager {
   // userId: Websocket map
   private riderUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
   private driverUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
-  // A map of channel prefix → (message type → handler)
+  // A map of channel prefix → (messageType → handler)
   private channelHandlers = new Map<string, Map<string, MessageHandler>>();
 
   constructor(private redisSubscribe: Redis) {
@@ -47,12 +47,15 @@ export class ConnectionManager {
 
     this.redisSubscribe.on('messageBuffer', (channel, message) => {
       const parsed = JSON.parse(message.toString());
-      const channelStr = channel.toString(); // trip: or trips:available:syd
+      const channelStr = channel.toString(); // trip:123 or trips:available:syd
 
-      for (const [prefix, typeHandlers] of this.channelHandlers) {
+      for (const [prefix, messageTypeToHandlerMap] of this.channelHandlers) {
+        // eg. channelStr is "trip:12345"
+        // prefix is "trip:"
         if (channelStr.startsWith(prefix)) {
-          const handler = typeHandlers.get(parsed.type);
-          handler?.(parsed);
+          const messageTypeHandler = messageTypeToHandlerMap.get(parsed.type);
+          messageTypeHandler?.(parsed);
+          break; // channels won't match two prefixes, so stop early
         }
       }
     });

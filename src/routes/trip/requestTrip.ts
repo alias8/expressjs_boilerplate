@@ -10,6 +10,7 @@ import {
 } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, riderCanRequest } from '../../utils/db/user';
+import { publishToRedis } from '../../utils/redis';
 
 const router = Router();
 
@@ -44,12 +45,8 @@ router.post('/', async (req: Request, res: Response) => {
       requested_at: new Date(),
       requested_by: userId,
     };
+    publishToRedis(REDIS_TRIPS_AVAILABLE_CHANNEL, messageToSend);
     // Publish to drivers listening for this
-    redisPublish.publish(
-      // we are just hardcoding to 1 city atm, but we want to be able to publish to the nearest big city
-      REDIS_TRIPS_AVAILABLE_CHANNEL,
-      JSON.stringify(messageToSend),
-    );
     redisSubscribe.subscribe(`${REDIS_TRIP_CHANNEL}${trip.id}`); // Listen for updates on this trip
     return res.status(200).json({ trip: trip.id });
   } catch (e) {
