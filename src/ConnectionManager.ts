@@ -3,8 +3,14 @@ import { WebSocket as WsWebSocket, WebSocket } from 'ws';
 import { URL } from 'node:url';
 import http from 'http';
 import { MessageService } from './MessageService';
-import { HARD_CODED_CITY, TripAcceptedMessage } from './routes/trip';
-import { UserType } from './models/models';
+import {
+  REDIS_TRIP_KEY,
+  REDIS_TRIPS_AVAILABLE_KEY,
+  TRIP_ACCEPTED,
+  TRIP_UPDATED,
+  TripAcceptedMessage,
+  UserType,
+} from './types/trip';
 
 export class ConnectionManager {
   // userId: Websocket map
@@ -18,8 +24,10 @@ export class ConnectionManager {
         // Rider gets updates on a trip
         const parsedMessages = JSON.parse(message.toString());
         if (parsedMessages.type === TRIP_ACCEPTED) {
-          const riderId = (parsedMessages as TripAcceptedMessage).requested_by;
+          const riderId = (parsedMessages as TripAcceptedMessage).driver_id;
           this.riderUserIdToWsConnectionMap.get(riderId)?.send(message.toString());
+        } else if (parsedMessages.type === TRIP_UPDATED) {
+          // todo
         }
       } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
         // Drivers are told a new trip is available
