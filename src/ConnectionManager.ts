@@ -9,8 +9,10 @@ import {
   TRIP_ACCEPTED,
   TRIP_UPDATED,
   TripAcceptedMessage,
+  TripUpdatedMessage,
   UserType,
 } from './types/trip';
+import { redisPublish } from './server';
 
 export class ConnectionManager {
   // userId: Websocket map
@@ -27,12 +29,12 @@ export class ConnectionManager {
           // Tell rider over websocket that ride is accepted
           const riderId = (parsedMessages as TripAcceptedMessage).rider_id;
           this.sendMessageToRiderWebSocket(riderId, message.toString());
-          this.riderUserIdToWsConnectionMap.get(riderId)?.send(message.toString());
-
           // Tell drivers over websocket that trip is no longer available
           this.sendMessageToAllDriversWebSocket(message.toString());
         } else if (parsedMessages.type === TRIP_UPDATED) {
-          // todo
+          // Driver has sent an update about the trip
+          const riderId = (parsedMessages as TripUpdatedMessage).rider_id;
+          this.sendMessageToRiderWebSocket(riderId, message.toString());
         }
       } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
         // Drivers are told a new trip is available
@@ -67,9 +69,18 @@ export class ConnectionManager {
   }
 
   handleIncomingWebsocketMessages(ws: WebSocket, messageService: MessageService) {
-    ws.on('message', async (mehandleIncomingWebsocketMessagesssage) => {
-      // todo: when rider or driver send a message over websocket to the server, handle it here
-      // eg. when drivers send location updates
+    ws.on('message', async (message) => {
+      try {
+        const parsedMessage = JSON.parse(message.toString());
+        if (parsedMessage.type === TRIP_UPDATED) {
+          // when drivers send location updates about trip:uuid
+          const { tripId } = parsedMessage as TripUpdatedMessage;
+          redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(parsedMessage));
+        }
+      } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+        console.error(`Error when handling message, ${errorMessage}`);
+      }
     });
   }
 

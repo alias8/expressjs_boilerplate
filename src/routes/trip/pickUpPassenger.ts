@@ -13,6 +13,8 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
   const { isDriver, driverId } = await userIsDriver(req, res);
   if (!isDriver) return;
   const tripId = req.params.tripId as string;
+  const currentGPSLatitude = req.query.currentGPSLatitude as string;
+  const currentGPSLongitude = req.query.currentGPSLongitude as string;
 
   try {
     return prisma.$transaction(async (tx) => {
@@ -29,14 +31,16 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
           picked_up_at: new Date(),
         },
       });
-      redisPublish.publish(
-        `${REDIS_TRIP_KEY}${tripId}`,
-        JSON.stringify({
-          type: TRIP_UPDATED,
-          status: TripStatus.IN_PROGRESS,
-          picked_up_at: new Date(),
-        } as TripUpdatedMessage),
-      );
+      const messageToSend: TripUpdatedMessage = {
+        type: TRIP_UPDATED,
+        status: TripStatus.IN_PROGRESS,
+        picked_up_at: new Date(),
+        tripId,
+        rider_id: trip.rider_id,
+        currentGPSLatitude,
+        currentGPSLongitude,
+      };
+      redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(messageToSend));
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {
