@@ -24,16 +24,19 @@ export class ConnectionManager {
         // Rider gets updates on a trip
         const parsedMessages = JSON.parse(message.toString());
         if (parsedMessages.type === TRIP_ACCEPTED) {
-          const riderId = (parsedMessages as TripAcceptedMessage).driver_id;
+          // Tell rider over websocket that ride is accepted
+          const riderId = (parsedMessages as TripAcceptedMessage).rider_id;
+          this.sendMessageToRiderWebSocket(riderId, message.toString());
           this.riderUserIdToWsConnectionMap.get(riderId)?.send(message.toString());
+
+          // Tell drivers over websocket that trip is no longer available
+          this.sendMessageToAllDriversWebSocket(message.toString());
         } else if (parsedMessages.type === TRIP_UPDATED) {
           // todo
         }
       } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
         // Drivers are told a new trip is available
-        this.driverUserIdToWsConnectionMap.forEach((driver) => {
-          driver.send(message.toString());
-        });
+        this.sendMessageToAllDriversWebSocket(message.toString());
       }
     });
   }
@@ -64,8 +67,9 @@ export class ConnectionManager {
   }
 
   handleIncomingWebsocketMessages(ws: WebSocket, messageService: MessageService) {
-    ws.on('message', async (message) => {
+    ws.on('message', async (mehandleIncomingWebsocketMessagesssage) => {
       // todo: when rider or driver send a message over websocket to the server, handle it here
+      // eg. when drivers send location updates
     });
   }
 
@@ -101,11 +105,31 @@ export class ConnectionManager {
       return;
     }
     const userType = params.get('userType');
-    if (userType === null || !Object.values(UserType).includes(userType)) {
+    if (userType === null || (userType !== UserType.DRIVER && userType !== UserType.RIDER)) {
       console.error(`No userType in websocket url ${url}, closing connection`);
       ws.close();
       return;
     }
     return { userId, userType };
+  }
+
+  sendMessageToRiderWebSocket(riderId: string, message: string) {
+    const socket = this.riderUserIdToWsConnectionMap.get(riderId);
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(message);
+    }
+  }
+  sendMessageToOneDriverWebSocket(driverId: string, message: string) {
+    const socket = this.driverUserIdToWsConnectionMap.get(driverId);
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(message);
+    }
+  }
+  sendMessageToAllDriversWebSocket(message: string) {
+    this.driverUserIdToWsConnectionMap.forEach((driver) => {
+      if (driver.readyState === WebSocket.OPEN) {
+        driver.send(message.toString());
+      }
+    });
   }
 }
