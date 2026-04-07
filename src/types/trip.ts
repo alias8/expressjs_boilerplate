@@ -7,13 +7,6 @@ export const TRIP_AVAILABLE = 'TRIP_AVAILABLE';
 export const TRIP_ACCEPTED = 'TRIP_ACCEPTED';
 export const TRIP_UPDATED = 'TRIP_UPDATED';
 
-export const UserType = {
-  DRIVER: 'DRIVER',
-  RIDER: 'RIDER',
-} as const;
-
-export type UserType = (typeof UserType)[keyof typeof UserType];
-
 export interface TripRequest {
   startGPSLatitude: number;
   startGPSLongitude: number;

@@ -10,9 +10,9 @@ import {
   TRIP_UPDATED,
   TripAcceptedMessage,
   TripUpdatedMessage,
-  UserType,
 } from './types/trip';
 import { redisPublish } from './server';
+import { UserType } from './generated/prisma/enums';
 
 export class ConnectionManager {
   // userId: Websocket map
@@ -74,6 +74,7 @@ export class ConnectionManager {
         const parsedMessage = JSON.parse(message.toString());
         if (parsedMessage.type === TRIP_UPDATED) {
           // when drivers send location updates about trip:uuid
+          // todo: get info from jwt
           const { tripId } = parsedMessage as TripUpdatedMessage;
 
           redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(parsedMessage));

@@ -1,6 +1,6 @@
 import { prisma } from '../../db/prisma';
 import { Request, Response } from 'express';
-import { DriverStatus, TripStatus } from '../../generated/prisma/enums';
+import { DriverStatus, TripStatus, UserType } from '../../generated/prisma/enums';
 
 export const searchUsersByUsername = async (username: string) => {
   return prisma.user.findMany({
@@ -22,9 +22,9 @@ export const getUserByUserId = async (userId: string) => {
   });
 };
 
-export const createUser = async (username: string, password_hash: string) => {
+export const createUser = async (username: string, password_hash: string, user_type: UserType) => {
   return prisma.user.create({
-    data: { username, password_hash },
+    data: { username, password_hash, user_type },
     select: { user_id: true, username: true, created_at: true },
   });
 };
@@ -84,12 +84,10 @@ export async function userIsDriver(req: Request, res: Response) {
     },
   });
   if (!driver) {
-    res
-      .status(400)
-      .json({
-        error:
-          'User is either: 1. not a driver or 2. a driver, but not in the AVAILABLE_FOR_TRIPS status',
-      });
+    res.status(400).json({
+      error:
+        'User is either: 1. not a driver or 2. a driver, but not in the AVAILABLE_FOR_TRIPS status',
+    });
     return { isDriver: false, driverId: '' };
   }
   return { isDriver: true, driverId: driver.driver_id };

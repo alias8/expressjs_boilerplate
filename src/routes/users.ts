@@ -1,18 +1,20 @@
 import { Router, Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, UserType } from '../generated/prisma/client';
 import {
   createUser,
   getUserByUserId,
   getUserByUsername,
   searchUsersByUsername,
 } from '../utils/db/user';
+import jwt from 'jsonwebtoken';
 
 const router = Router();
 
 interface UserLoginRequest {
   username: string;
   password: string;
+  user_type: UserType;
 }
 
 const bcryptSaltRounds = 10;
@@ -24,10 +26,10 @@ const bcryptSaltRounds = 10;
 }
 * */
 router.post('/register', async (req: Request, res: Response) => {
-  const { username, password } = req.body as UserLoginRequest;
+  const { username, password, user_type } = req.body as UserLoginRequest;
   try {
     const password_hash = await bcrypt.hash(password, bcryptSaltRounds);
-    const user = await createUser(username, password_hash);
+    const user = await createUser(username, password_hash, user_type);
     res.json({ user });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -49,6 +51,15 @@ router.post('/login', async (req: Request, res: Response) => {
     if (!match) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    const token = jwt.sign(
+      { userId: user.user_id, userType: user.user_type },
+      process.env.JWT_SECRET!,
+      {
+        expiresIn: '24h',
+      },
+    );
+    res.json({ token });
+
     return res.status(200).json({ username: user.username, id: user.user_id });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
