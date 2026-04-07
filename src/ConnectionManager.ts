@@ -12,44 +12,74 @@ import {
   TripAcceptedMessage,
   TripUpdatedNewLocationMessage,
 } from './types/trip';
-import { redisPublish } from './server';
 import { TripStatus, UserType } from './generated/prisma/enums';
 import jwt from 'jsonwebtoken';
 import { JwtUberToken } from './types/express';
 import { prisma } from './db/prisma';
+import { publishToRedis } from './utils/redis';
 
-// A type for handler functions
-type MessageHandler = (message: any) => void;
+type RedisMessageHandler = (message: any) => void;
+type WebsocketMessageHandler = (message: any, userId: string) => void;
 
 export class ConnectionManager {
   // userId: Websocket map
   private riderUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
   private driverUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
   // A map of channel prefix → (messageType → handler)
-  private channelHandlers = new Map<string, Map<string, MessageHandler>>();
+  private redisChannelsToWebsocketHandlersMap = new Map<string, Map<string, RedisMessageHandler>>();
+  private webSocketMessageTypeToHandlerMap = new Map<string, WebsocketMessageHandler>();
 
   constructor(private redisSubscribe: Redis) {
     this.redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_CHANNEL);
 
-    this.registerHandler(REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, (msg: TripAcceptedMessage) => {
+    this.registerHandlerForRedisChannel(
+      REDIS_TRIP_CHANNEL,
+      TRIP_ACCEPTED,
+      (msg: TripAcceptedMessage) => {
+        this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
+        this.sendMessageToAllDriversWebSocket(JSON.stringify(msg));
+      },
+    );
+    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_UPDATED_NEW_LOCATION, (msg) => {
       this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
-      this.sendMessageToAllDriversWebSocket(JSON.stringify(msg));
     });
-    this.registerHandler(REDIS_TRIP_CHANNEL, TRIP_UPDATED_NEW_LOCATION, (msg) => {
+    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_UPDATED_PICKED_UP, (msg) => {
       this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
     });
-    this.registerHandler(REDIS_TRIP_CHANNEL, TRIP_UPDATED_PICKED_UP, (msg) => {
-      this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
-    });
-    this.registerHandler(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
+    this.registerHandlerForRedisChannel(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
       this.sendMessageToAllDriversWebSocket(msg.toString());
+    });
+
+    this.registerHandlerForWebsocket(TRIP_UPDATED_NEW_LOCATION, async (msg, userId) => {
+      // when drivers send location updates about trip:uuid
+      const { tripId, currentGPSLatitude, currentGPSLongitude } =
+        msg as TripUpdatedNewLocationMessage;
+      const trip = await prisma.trip.findFirst({
+        where: {
+          id: tripId,
+          driver_id: userId,
+          status: {
+            in: [TripStatus.ACCEPTED, TripStatus.IN_PROGRESS],
+          },
+        },
+      });
+      if (trip) {
+        const messageToSend: TripUpdatedNewLocationMessage = {
+          type: TRIP_UPDATED_NEW_LOCATION,
+          tripId: trip.id,
+          rider_id: trip.rider_id,
+          currentGPSLatitude,
+          currentGPSLongitude,
+        };
+        publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend);
+      }
     });
 
     this.redisSubscribe.on('messageBuffer', (channel, message) => {
       const parsed = JSON.parse(message.toString());
       const channelStr = channel.toString(); // trip:123 or trips:available:syd
 
-      for (const [prefix, messageTypeToHandlerMap] of this.channelHandlers) {
+      for (const [prefix, messageTypeToHandlerMap] of this.redisChannelsToWebsocketHandlersMap) {
         // eg. channelStr is "trip:12345"
         // prefix is "trip:"
         if (channelStr.startsWith(prefix)) {
@@ -62,11 +92,21 @@ export class ConnectionManager {
   }
 
   // Register a handler
-  registerHandler(channelPrefix: string, messageType: string, handler: MessageHandler) {
-    if (!this.channelHandlers.has(channelPrefix)) {
-      this.channelHandlers.set(channelPrefix, new Map());
+  registerHandlerForRedisChannel(
+    channelPrefix: string,
+    messageType: string,
+    handler: RedisMessageHandler,
+  ) {
+    if (!this.redisChannelsToWebsocketHandlersMap.has(channelPrefix)) {
+      this.redisChannelsToWebsocketHandlersMap.set(channelPrefix, new Map());
     }
-    this.channelHandlers.get(channelPrefix)!.set(messageType, handler);
+    this.redisChannelsToWebsocketHandlersMap.get(channelPrefix)!.set(messageType, handler);
+  }
+
+  registerHandlerForWebsocket(messageType: string, handler: WebsocketMessageHandler) {
+    if (!this.webSocketMessageTypeToHandlerMap.has(messageType)) {
+      this.webSocketMessageTypeToHandlerMap.set(messageType, handler);
+    }
   }
 
   /*
@@ -99,24 +139,8 @@ export class ConnectionManager {
     ws.on('message', async (message) => {
       try {
         const parsedMessage = JSON.parse(message.toString());
-        if (parsedMessage.type === TRIP_UPDATED_NEW_LOCATION) {
-          // when drivers send location updates about trip:uuid
-          const { tripId, currentGPSLatitude, currentGPSLongitude } =
-            parsedMessage as TripUpdatedNewLocationMessage;
-          const trip = await prisma.trip.findFirst({
-            where: { id: tripId, status: TripStatus.ACCEPTED, rider_id: userId },
-          });
-          if (trip) {
-            const messageToSend: TripUpdatedNewLocationMessage = {
-              type: TRIP_UPDATED_NEW_LOCATION,
-              tripId: trip.id,
-              rider_id: trip.rider_id,
-              currentGPSLatitude,
-              currentGPSLongitude,
-            };
-            redisPublish.publish(`${REDIS_TRIP_CHANNEL}${tripId}`, JSON.stringify(messageToSend));
-          }
-        }
+        const webSocketHandler = this.webSocketMessageTypeToHandlerMap.get(parsedMessage.type);
+        webSocketHandler?.(parsedMessage, userId);
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'Unknown error';
         console.error(`Error when handling message, ${errorMessage}`);
