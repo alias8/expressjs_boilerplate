@@ -3,14 +3,15 @@ import { prisma } from '../../db/prisma';
 import { redisPublish } from '../../server';
 import { REDIS_TRIP_KEY, TRIP_UPDATED, TripUpdatedMessage } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
-import { userIdValid, userIsDriver } from '../../utils/db/user';
+import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
 
 const router = Router();
 
 // Pick up passenger
 router.put('/:tripId/pickup', async (req: Request, res: Response) => {
-  if (!(await userIdValid(req, res))) return;
-  const { isDriver, driverId } = await userIsDriver(req, res);
+  const userId = getUserIdFromToken(req, res);
+  if (!userId) return;
+  const { isDriver, driverId } = await userIsDriver(userId, res);
   if (!isDriver) return;
   const tripId = req.params.tripId as string;
   const currentGPSLatitude = req.query.currentGPSLatitude as string;

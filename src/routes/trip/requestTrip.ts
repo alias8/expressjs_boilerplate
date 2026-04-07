@@ -9,16 +9,15 @@ import {
   TripRequest,
 } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
-import { riderCanRequest, userIdValid } from '../../utils/db/user';
+import { getUserIdFromToken, riderCanRequest } from '../../utils/db/user';
 
 const router = Router();
 
 // Request a trip
 router.post('/', async (req: Request, res: Response) => {
-  const jwtToken = req.user;
-  const userId = jwtToken?.userId;
-  if (!(await userIdValid(req, res))) return;
-  if (!(await riderCanRequest(req, res))) return;
+  const userId = getUserIdFromToken(req, res);
+  if (!userId) return;
+  if (!(await riderCanRequest(userId!, res))) return;
 
   const { startGPSLatitude, startGPSLongitude, endGPSLatitude, endGPSLongitude } =
     req.body as TripRequest;

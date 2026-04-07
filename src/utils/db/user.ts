@@ -29,26 +29,7 @@ export const createUser = async (username: string, password_hash: string, user_t
   });
 };
 
-export async function userIdValid(req: Request, res: Response) {
-  const userId = req.query.userId as string; // would come from jwt in real life
-
-  if (!userId) {
-    res.status(400).json({ error: 'userId is required' });
-    return false;
-  }
-  const userExists = await prisma.user.findFirst({
-    where: { user_id: userId },
-  });
-  if (!userExists) {
-    res.status(400).json({ error: 'userId not found' });
-    return false;
-  }
-  return true;
-}
-
-export async function riderCanRequest(req: Request, res: Response) {
-  const userId = req.query.userId as string; // would come from jwt in real life
-
+export async function riderCanRequest(userId: string, res: Response) {
   const isActiveDriver = await prisma.driver.findFirst({
     where: {
       user_id: userId,
@@ -75,8 +56,7 @@ export async function riderCanRequest(req: Request, res: Response) {
   return true;
 }
 
-export async function userIsDriver(req: Request, res: Response) {
-  const userId = req.query.userId as string; // would come from jwt in real life
+export async function userIsDriver(userId: string, res: Response) {
   const driver = await prisma.driver.findFirst({
     where: {
       user_id: userId,
@@ -91,4 +71,14 @@ export async function userIsDriver(req: Request, res: Response) {
     return { isDriver: false, driverId: '' };
   }
   return { isDriver: true, driverId: driver.driver_id };
+}
+
+export function getUserIdFromToken(req: Request, res: Response) {
+  const { jwtToken } = req;
+  const userId = jwtToken?.userId;
+  if (!userId) {
+    res.status(404).json({ error: 'UserId required' });
+    return false;
+  }
+  return userId;
 }

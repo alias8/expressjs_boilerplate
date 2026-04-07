@@ -9,7 +9,7 @@ export interface JwtUberToken extends JwtPayload {
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtUberToken;
+      jwtToken?: JwtUberToken;
     }
   }
 }
