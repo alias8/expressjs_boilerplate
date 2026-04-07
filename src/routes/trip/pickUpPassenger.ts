@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
 import { redisPublish } from '../../server';
-import { REDIS_TRIP_KEY, TRIP_UPDATED, TripUpdatedMessage } from '../../types/trip';
+import { REDIS_TRIP_KEY, TRIP_UPDATED_PICKED_UP, TripUpdatedPickUpMessage } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
 
@@ -36,8 +36,8 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
           picked_up_at: new Date(),
         },
       });
-      const messageToSend: TripUpdatedMessage = {
-        type: TRIP_UPDATED,
+      const messageToSend: TripUpdatedPickUpMessage = {
+        type: TRIP_UPDATED_PICKED_UP,
         status: TripStatus.IN_PROGRESS,
         picked_up_at: new Date(),
         tripId,

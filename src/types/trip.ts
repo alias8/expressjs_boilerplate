@@ -5,7 +5,8 @@ export const REDIS_TRIP_KEY = 'trip:';
 export const REDIS_TRIPS_AVAILABLE_KEY = `trips:available:${HARD_CODED_CITY}`;
 export const TRIP_AVAILABLE = 'TRIP_AVAILABLE';
 export const TRIP_ACCEPTED = 'TRIP_ACCEPTED';
-export const TRIP_UPDATED = 'TRIP_UPDATED';
+export const TRIP_UPDATED_PICKED_UP = 'TRIP_UPDATED_PICKED_UP';
+export const TRIP_UPDATED_NEW_LOCATION = 'TRIP_UPDATED_NEW_LOCATION';
 
 export interface TripRequest {
   startGPSLatitude: number;
@@ -32,9 +33,18 @@ export interface TripAcceptedMessage {
   accepted_at: Date;
 }
 
-export interface TripUpdatedMessage {
-  type: typeof TRIP_UPDATED;
+export interface TripUpdatedNewLocationMessage {
+  type: typeof TRIP_UPDATED_NEW_LOCATION;
   tripId: string;
+  rider_id: string;
+  currentGPSLatitude: number;
+  currentGPSLongitude: number;
+}
+
+export interface TripUpdatedPickUpMessage {
+  type: typeof TRIP_UPDATED_PICKED_UP;
+  tripId: string;
+  rider_id: string;
   currentGPSLatitude: number;
   currentGPSLongitude: number;
   picked_up_at: Date;

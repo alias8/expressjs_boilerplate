@@ -31,15 +31,13 @@ router.put('/:tripId', async (req: Request, res: Response) => {
           status: TripStatus.ACCEPTED,
         },
       });
-      redisPublish.publish(
-        `${REDIS_TRIP_KEY}${tripId}`,
-        JSON.stringify({
-          type: TRIP_ACCEPTED,
-          rider_id: trip.rider_id,
-          driver_id: driverId,
-          accepted_at: new Date(),
-        } as TripAcceptedMessage),
-      );
+      const messageToSend: TripAcceptedMessage = {
+        type: TRIP_ACCEPTED,
+        rider_id: trip.rider_id,
+        driver_id: driverId,
+        accepted_at: new Date(),
+      };
+      redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(messageToSend));
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {

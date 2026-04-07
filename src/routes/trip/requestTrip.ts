@@ -34,20 +34,21 @@ router.post('/', async (req: Request, res: Response) => {
         status: TripStatus.REQUESTED,
       },
     });
+    const messageToSend: TripAvailableMessage = {
+      type: TRIP_AVAILABLE,
+      tripId: trip.id,
+      startGPSLatitude,
+      startGPSLongitude,
+      endGPSLatitude,
+      endGPSLongitude,
+      requested_at: new Date(),
+      requested_by: userId,
+    };
     // Publish to drivers listening for this
     redisPublish.publish(
       // we are just hardcoding to 1 city atm, but we want to be able to publish to the nearest big city
       REDIS_TRIPS_AVAILABLE_KEY,
-      JSON.stringify({
-        type: TRIP_AVAILABLE,
-        tripId: trip.id,
-        startGPSLatitude,
-        startGPSLongitude,
-        endGPSLatitude,
-        endGPSLongitude,
-        requested_at: new Date(),
-        requested_by: userId,
-      } as TripAvailableMessage),
+      JSON.stringify(messageToSend),
     );
     redisSubscribe.subscribe(`${REDIS_TRIP_KEY}${trip.id}`); // Listen for updates on this trip
     return res.status(200).json({ trip: trip.id });
