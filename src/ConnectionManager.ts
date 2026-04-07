@@ -79,10 +79,10 @@ export class ConnectionManager {
     ws.on('message', async (message) => {
       try {
         const parsedMessage = JSON.parse(message.toString());
-        if (parsedMessage.type === TRIP_UPDATED) {
+        if (parsedMessage.type === TRIP_UPDATED_NEW_LOCATION) {
           // when drivers send location updates about trip:uuid
           const { tripId, currentGPSLatitude, currentGPSLongitude } =
-            parsedMessage as TripUpdatedMessage;
+            parsedMessage as TripUpdatedNewLocationMessage;
           const trip = await prisma.trip.findFirst({
             where: { id: tripId, status: TripStatus.ACCEPTED, rider_id: userId },
           });
