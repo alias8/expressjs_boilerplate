@@ -5,15 +5,18 @@ import cookieParser from 'cookie-parser';
 import createError, { HttpError } from 'http-errors';
 
 import tripRouter from './routes/trip';
+import usersRouter from './routes/users';
+import { authenticateJwtToken } from './middleware/auth';
 
 export const app = express();
 
 app.use(cors());
 app.use(logger('dev'));
 app.use(express.json());
+app.use(authenticateJwtToken);
 app.use(cookieParser());
-
-app.use('/trip', tripRouter);
+app.use('/users', usersRouter);
+app.use('/trip', tripRouter); // protected route
 
 // 404 handler
 app.use((req: Request, res: Response, next: NextFunction) => {
