@@ -1,8 +1,11 @@
 import { TripStatus } from '../generated/prisma/enums';
 
 export const HARD_CODED_CITY = 'sydney';
-export const REDIS_TRIP_KEY = 'trip:';
-export const REDIS_TRIPS_AVAILABLE_KEY = `trips:available:${HARD_CODED_CITY}`;
+// Redis channel names
+export const REDIS_TRIP_CHANNEL = 'trip:';
+export const REDIS_TRIPS_AVAILABLE_CHANNEL = `trips:available:${HARD_CODED_CITY}`;
+
+// Message types (the `type` field on all messages)
 export const TRIP_AVAILABLE = 'TRIP_AVAILABLE';
 export const TRIP_ACCEPTED = 'TRIP_ACCEPTED';
 export const TRIP_UPDATED_PICKED_UP = 'TRIP_UPDATED_PICKED_UP';

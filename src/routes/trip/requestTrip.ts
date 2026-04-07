@@ -2,8 +2,8 @@ import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
 import { redisPublish, redisSubscribe } from '../../server';
 import {
-  REDIS_TRIP_KEY,
-  REDIS_TRIPS_AVAILABLE_KEY,
+  REDIS_TRIP_CHANNEL,
+  REDIS_TRIPS_AVAILABLE_CHANNEL,
   TRIP_AVAILABLE,
   TripAvailableMessage,
   TripRequest,
@@ -47,10 +47,10 @@ router.post('/', async (req: Request, res: Response) => {
     // Publish to drivers listening for this
     redisPublish.publish(
       // we are just hardcoding to 1 city atm, but we want to be able to publish to the nearest big city
-      REDIS_TRIPS_AVAILABLE_KEY,
+      REDIS_TRIPS_AVAILABLE_CHANNEL,
       JSON.stringify(messageToSend),
     );
-    redisSubscribe.subscribe(`${REDIS_TRIP_KEY}${trip.id}`); // Listen for updates on this trip
+    redisSubscribe.subscribe(`${REDIS_TRIP_CHANNEL}${trip.id}`); // Listen for updates on this trip
     return res.status(200).json({ trip: trip.id });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';

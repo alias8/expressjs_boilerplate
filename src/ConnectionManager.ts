@@ -3,9 +3,10 @@ import { WebSocket as WsWebSocket, WebSocket } from 'ws';
 import { URL } from 'node:url';
 import http from 'http';
 import {
-  REDIS_TRIP_KEY,
-  REDIS_TRIPS_AVAILABLE_KEY,
+  REDIS_TRIP_CHANNEL,
+  REDIS_TRIPS_AVAILABLE_CHANNEL,
   TRIP_ACCEPTED,
+  TRIP_AVAILABLE,
   TRIP_UPDATED_NEW_LOCATION,
   TRIP_UPDATED_PICKED_UP,
   TripAcceptedMessage,
@@ -17,36 +18,52 @@ import jwt from 'jsonwebtoken';
 import { JwtUberToken } from './types/express';
 import { prisma } from './db/prisma';
 
+// A type for handler functions
+type MessageHandler = (message: any) => void;
+
 export class ConnectionManager {
   // userId: Websocket map
   private riderUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
   private driverUserIdToWsConnectionMap = new Map<string, WsWebSocket>();
+  // A map of channel prefix → (message type → handler)
+  private channelHandlers = new Map<string, Map<string, MessageHandler>>();
 
   constructor(private redisSubscribe: Redis) {
-    this.redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_KEY);
-    this.redisSubscribe.on('messageBuffer', async (channel, message) => {
-      if (channel.toString().startsWith(REDIS_TRIP_KEY)) {
-        // Rider gets updates on a trip
-        const parsedMessages = JSON.parse(message.toString());
-        if (parsedMessages.type === TRIP_ACCEPTED) {
-          // Tell rider over websocket that ride is accepted
-          const riderId = (parsedMessages as TripAcceptedMessage).rider_id;
-          this.sendMessageToRiderWebSocket(riderId, message.toString());
-          // Tell drivers over websocket that trip is no longer available
-          this.sendMessageToAllDriversWebSocket(message.toString());
-        } else if (
-          parsedMessages.type === TRIP_UPDATED_PICKED_UP ||
-          parsedMessages.type === TRIP_UPDATED_NEW_LOCATION
-        ) {
-          // Driver has sent an update about the trip
-          const riderId = (parsedMessages as TripUpdatedNewLocationMessage).rider_id;
-          this.sendMessageToRiderWebSocket(riderId, message.toString());
+    this.redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_CHANNEL);
+
+    this.registerHandler(REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, (msg: TripAcceptedMessage) => {
+      this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
+      this.sendMessageToAllDriversWebSocket(JSON.stringify(msg));
+    });
+    this.registerHandler(REDIS_TRIP_CHANNEL, TRIP_UPDATED_NEW_LOCATION, (msg) => {
+      this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
+    });
+    this.registerHandler(REDIS_TRIP_CHANNEL, TRIP_UPDATED_PICKED_UP, (msg) => {
+      this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
+    });
+    this.registerHandler(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
+      this.sendMessageToAllDriversWebSocket(msg.toString());
+    });
+
+    this.redisSubscribe.on('messageBuffer', (channel, message) => {
+      const parsed = JSON.parse(message.toString());
+      const channelStr = channel.toString(); // trip: or trips:available:syd
+
+      for (const [prefix, typeHandlers] of this.channelHandlers) {
+        if (channelStr.startsWith(prefix)) {
+          const handler = typeHandlers.get(parsed.type);
+          handler?.(parsed);
         }
-      } else if (channel.toString().startsWith(REDIS_TRIPS_AVAILABLE_KEY)) {
-        // Drivers are told a new trip is available
-        this.sendMessageToAllDriversWebSocket(message.toString());
       }
     });
+  }
+
+  // Register a handler
+  registerHandler(channelPrefix: string, messageType: string, handler: MessageHandler) {
+    if (!this.channelHandlers.has(channelPrefix)) {
+      this.channelHandlers.set(channelPrefix, new Map());
+    }
+    this.channelHandlers.get(channelPrefix)!.set(messageType, handler);
   }
 
   /*
@@ -94,7 +111,7 @@ export class ConnectionManager {
               currentGPSLatitude,
               currentGPSLongitude,
             };
-            redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(messageToSend));
+            redisPublish.publish(`${REDIS_TRIP_CHANNEL}${tripId}`, JSON.stringify(messageToSend));
           }
         }
       } catch (e) {

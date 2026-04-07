@@ -1,7 +1,11 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
 import { redisPublish } from '../../server';
-import { REDIS_TRIP_KEY, TRIP_UPDATED_PICKED_UP, TripUpdatedPickUpMessage } from '../../types/trip';
+import {
+  REDIS_TRIP_CHANNEL,
+  TRIP_UPDATED_PICKED_UP,
+  TripUpdatedPickUpMessage,
+} from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
 
@@ -45,7 +49,7 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
         currentGPSLatitude: parseFloat(currentGPSLatitude),
         currentGPSLongitude: parseFloat(currentGPSLongitude),
       };
-      redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(messageToSend));
+      redisPublish.publish(`${REDIS_TRIP_CHANNEL}${tripId}`, JSON.stringify(messageToSend));
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {

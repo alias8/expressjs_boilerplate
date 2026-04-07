@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
 import { redisPublish } from '../../server';
-import { REDIS_TRIP_KEY, TRIP_ACCEPTED, TripAcceptedMessage } from '../../types/trip';
+import { REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, TripAcceptedMessage } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
 
@@ -37,7 +37,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         driver_id: driverId,
         accepted_at: new Date(),
       };
-      redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(messageToSend));
+      redisPublish.publish(`${REDIS_TRIP_CHANNEL}${tripId}`, JSON.stringify(messageToSend));
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {
