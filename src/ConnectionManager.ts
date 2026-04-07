@@ -75,6 +75,7 @@ export class ConnectionManager {
         if (parsedMessage.type === TRIP_UPDATED) {
           // when drivers send location updates about trip:uuid
           const { tripId } = parsedMessage as TripUpdatedMessage;
+
           redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(parsedMessage));
         }
       } catch (e) {

@@ -37,8 +37,8 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
         picked_up_at: new Date(),
         tripId,
         rider_id: trip.rider_id,
-        currentGPSLatitude,
-        currentGPSLongitude,
+        currentGPSLatitude: Number.parseInt(currentGPSLatitude),
+        currentGPSLongitude: Number.parseInt(currentGPSLongitude),
       };
       redisPublish.publish(`${REDIS_TRIP_KEY}${tripId}`, JSON.stringify(messageToSend));
       return res.status(200).json({ trip: trip.id });

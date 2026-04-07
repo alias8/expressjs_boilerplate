@@ -43,8 +43,8 @@ export interface TripUpdatedMessage {
   type: typeof TRIP_UPDATED;
   tripId: string;
   rider_id: string;
-  currentGPSLatitude: string;
-  currentGPSLongitude: string;
+  currentGPSLatitude: number;
+  currentGPSLongitude: number;
   picked_up_at: Date;
   status: TripStatus;
 }
