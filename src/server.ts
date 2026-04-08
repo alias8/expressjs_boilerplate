@@ -3,7 +3,7 @@ import http from 'http';
 import app from './app';
 import { Server } from 'ws';
 import { Redis } from 'ioredis';
-import { ConnectionManager } from './ConnectionManager';
+import { WebsocketConnectionManager } from './WebsocketConnectionManager';
 import { MessageService } from './services/messageService/MessageService';
 
 const port = process.env.PORT ?? 3000;
@@ -23,6 +23,6 @@ server.listen(port, () => {
 
 const wss = new Server({ server });
 
-export const connectionManager = new ConnectionManager(redisSubscribe);
+export const connectionManager = new WebsocketConnectionManager(redisSubscribe);
 export const messageService = new MessageService();
 wss.on('connection', (ws, req) => connectionManager.handleConnection(ws, req, messageService));
