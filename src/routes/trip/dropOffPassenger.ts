@@ -4,6 +4,7 @@ import { REDIS_TRIP_CHANNEL, TRIP_DROPPED_OFF, TripUpdatedDropOffMessage } from 
 import { TripStatus } from '../../generated/prisma/enums';
 import { getJwtToken, userIsDriver } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
+import { redisSubscribe } from '../../server';
 
 const router = Router();
 
@@ -48,6 +49,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         endGPSLongitude_actual: currentGPSLongitude,
       };
       publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend); // todo: use outbox pattern
+      redisSubscribe.unsubscribe(`${REDIS_TRIP_CHANNEL}${trip.id}`); // trip complete, get rid of sub
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {

@@ -21,6 +21,8 @@ import jwt from 'jsonwebtoken';
 import { JwtUberToken } from './types/express';
 import { prisma } from './db/prisma';
 import { publishToRedis } from './utils/redis';
+import { redisGeo } from './server';
+import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from './types/drivers';
 
 type RedisMessageHandlerMessageTypes =
   | TripAvailableMessage
@@ -79,6 +81,13 @@ export class ConnectionManager {
         };
         publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend);
       }
+      // Update redis for available drivers
+      redisGeo.geoadd(
+        REDIS_DRIVER_LOCATION,
+        currentGPSLongitude, // longitude first
+        currentGPSLatitude, // latitude second
+        `${REDIS_DRIVER_LOCATION_PREFIX}${userId}`,
+      );
     });
 
     this.redisSubscribe.on('messageBuffer', (channel, message) => {
@@ -178,6 +187,7 @@ export class ConnectionManager {
       this.riderUserIdToWsConnectionMap.delete(userId);
     } else if (userType === UserType.DRIVER) {
       this.driverUserIdToWsConnectionMap.delete(userId);
+      redisGeo.zrem(REDIS_DRIVER_LOCATION, `${REDIS_DRIVER_LOCATION_PREFIX}${userId}`);
     }
   }
 

@@ -3,7 +3,6 @@ import { redisPublish } from '../server';
 import {
   REDIS_TRIP_CHANNEL,
   REDIS_TRIPS_AVAILABLE_CHANNEL,
-  TRIP_UPDATE_CURRENT_LOCATION,
   TripAcceptedMessage,
   TripAvailableMessage,
   TripUpdatedDropOffMessage,
@@ -11,6 +10,7 @@ import {
   TripUpdatedPickUpMessage,
 } from '../types/trip';
 
+// Trips
 export function publishToRedis(
   channel: `${typeof REDIS_TRIP_CHANNEL}${string}`,
   message: TripAcceptedMessage,
