@@ -1,9 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
-import { REDIS_TRIP_CHANNEL, TRIP_DROPPED_OFF, TripUpdatedDropOffMessage } from '../../types/trip';
 import { Rating, TripStatus, UserType } from '../../generated/prisma/enums';
-import { getJwtToken, userIsDriver } from '../../utils/db/user';
-import { publishToRedis } from '../../utils/redis';
+import { getJwtToken } from '../../utils/db/user';
 
 const router = Router();
 
@@ -25,7 +23,12 @@ router.put('/:tripId', async (req: Request, res: Response) => {
       ...(userType === UserType.DRIVER && { ratingForRider: rating }),
     };
     const trip = await prisma.trip.update({
-      where: { id: tripId, status: TripStatus.COMPLETED },
+      where: {
+        id: tripId,
+        status: TripStatus.COMPLETED,
+        ...(userType === UserType.RIDER && { rider_id: token.userId }),
+        ...(userType === UserType.DRIVER && { driver_id: token.userId }), // needs driverId lookup
+      },
       data: {
         ...ratingForDB,
       },

@@ -8,8 +8,8 @@ import {
   TRIP_ACCEPTED,
   TRIP_AVAILABLE,
   TRIP_DROPPED_OFF,
-  TRIP_UPDATE_CURRENT_LOCATION,
   TRIP_PICKED_UP,
+  TRIP_UPDATE_CURRENT_LOCATION,
   TripAcceptedMessage,
   TripAvailableMessage,
   TripUpdatedDropOffMessage,
@@ -103,16 +103,28 @@ export class ConnectionManager {
     messageType: string,
     handler: RedisMessageHandler,
   ) {
+    // eg. channelPrefix will be "trip:"
     if (!this.redisChannelsToWebsocketHandlersMap.has(channelPrefix)) {
       this.redisChannelsToWebsocketHandlersMap.set(channelPrefix, new Map());
     }
-    this.redisChannelsToWebsocketHandlersMap.get(channelPrefix)!.set(messageType, handler);
+    // handlerMap for channel "trip:"
+    const websocketHandlersForRedisChannel =
+      this.redisChannelsToWebsocketHandlersMap.get(channelPrefix);
+    if (websocketHandlersForRedisChannel !== undefined) {
+      if (websocketHandlersForRedisChannel.has(messageType)) {
+        throw new Error(
+          `Redis channel to webSocket handler map error. Already registered for channel ${channelPrefix} and messageType: ${messageType}`,
+        );
+      }
+      websocketHandlersForRedisChannel.set(messageType, handler);
+    }
   }
 
   registerHandlerForWebsocket(messageType: string, handler: WebsocketMessageHandler) {
-    if (!this.webSocketMessageTypeToHandlerMap.has(messageType)) {
-      this.webSocketMessageTypeToHandlerMap.set(messageType, handler);
+    if (this.webSocketMessageTypeToHandlerMap.has(messageType)) {
+      throw new Error(`WebSocket handler already registered for messageType: ${messageType}`);
     }
+    this.webSocketMessageTypeToHandlerMap.set(messageType, handler);
   }
 
   /*
@@ -207,12 +219,6 @@ export class ConnectionManager {
 
   sendMessageToRiderWebSocket(riderId: string, message: object) {
     const socket = this.riderUserIdToWsConnectionMap.get(riderId);
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(message));
-    }
-  }
-  sendMessageToOneDriverWebSocket(driverId: string, message: object) {
-    const socket = this.driverUserIdToWsConnectionMap.get(driverId);
     if (socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(message));
     }
