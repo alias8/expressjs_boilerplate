@@ -38,12 +38,12 @@ router.post('/', async (req: Request, res: Response) => {
     const messageToSend: TripAvailableMessage = {
       type: TRIP_AVAILABLE,
       tripId: trip.id,
+      rider_id: userId,
       startGPSLatitude,
       startGPSLongitude,
       endGPSLatitude,
       endGPSLongitude,
       requested_at: trip.requested_at,
-      requested_by: userId,
     };
     publishToRedis(REDIS_TRIPS_AVAILABLE_CHANNEL, messageToSend);
     // Publish to drivers listening for this

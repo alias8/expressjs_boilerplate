@@ -2,10 +2,8 @@ import 'dotenv/config';
 import http from 'http';
 import app from './app';
 import { Server } from 'ws';
-import { prisma } from './db/prisma';
 import { Redis } from 'ioredis';
 import { ConnectionManager } from './ConnectionManager';
-import { MessageService } from './MessageService';
 import { Client } from '@elastic/elasticsearch';
 
 const port = process.env.PORT ?? 3000;
@@ -31,6 +29,5 @@ server.listen(port, () => {
 const wss = new Server({ server });
 
 export const connectionManager = new ConnectionManager(redisSubscribe);
-const messageService = new MessageService(prisma, redisPublish, elasticSearchClient);
 
-wss.on('connection', (ws, req) => connectionManager.handleConnection(ws, req, messageService));
+wss.on('connection', (ws, req) => connectionManager.handleConnection(ws, req));

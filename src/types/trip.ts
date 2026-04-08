@@ -37,7 +37,6 @@ export interface TripAvailableMessage extends RedisTripMessages {
   endGPSLatitude: number;
   endGPSLongitude: number;
   requested_at: Date;
-  requested_by: string;
 }
 
 export interface TripAcceptedMessage extends RedisTripMessages {
