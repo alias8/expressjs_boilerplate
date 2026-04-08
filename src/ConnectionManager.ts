@@ -52,6 +52,7 @@ export class ConnectionManager {
       });
     });
     this.registerHandlerForRedisChannel(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
+      // todo: if drivers and riders had blocked each other, we should store this in a redis map and check it before broadcasting to each driver
       this.sendMessageToAllDriversWebSocket(msg);
     });
 

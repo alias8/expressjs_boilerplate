@@ -73,12 +73,13 @@ export async function userIsDriver(userId: string, res: Response) {
   return { isDriver: true, driverId: driver.driver_id };
 }
 
-export function getUserIdFromToken(req: Request, res: Response) {
+export function getJwtToken(req: Request, res: Response) {
   const { jwtToken } = req;
   const userId = jwtToken?.userId;
-  if (!userId) {
-    res.status(404).json({ error: 'UserId required' });
+  const userType = jwtToken?.userType;
+  if (!userId || !userType) {
+    res.status(404).json({ error: 'UserId or userType missing in token' });
     return false;
   }
-  return userId;
+  return { userId, userType };
 }

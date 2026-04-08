@@ -9,16 +9,17 @@ import {
   TripRequest,
 } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
-import { getUserIdFromToken, riderCanRequest } from '../../utils/db/user';
+import { getJwtToken, riderCanRequest } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
 
 const router = Router();
 
 // Request a trip
 router.post('/', async (req: Request, res: Response) => {
-  const userId = getUserIdFromToken(req, res);
-  if (!userId) return;
-  if (!(await riderCanRequest(userId!, res))) return;
+  const token = getJwtToken(req, res);
+  if (!token) return;
+  const { userId } = token;
+  if (!(await riderCanRequest(userId, res))) return;
 
   const { startGPSLatitude, startGPSLongitude, endGPSLatitude, endGPSLongitude } =
     req.body as TripRequest;
