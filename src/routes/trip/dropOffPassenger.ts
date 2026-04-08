@@ -1,10 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
-import {
-  REDIS_TRIP_CHANNEL,
-  TRIP_UPDATED_DROP_OFF,
-  TripUpdatedDropOffMessage,
-} from '../../types/trip';
+import { REDIS_TRIP_CHANNEL, TRIP_DROPPED_OFF, TripUpdatedDropOffMessage } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
@@ -43,7 +39,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         },
       });
       const messageToSend: TripUpdatedDropOffMessage = {
-        type: TRIP_UPDATED_DROP_OFF,
+        type: TRIP_DROPPED_OFF,
         dropped_off_at: trip.dropped_off_at!,
         tripId,
         rider_id: trip.rider_id,

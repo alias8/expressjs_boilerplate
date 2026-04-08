@@ -7,10 +7,14 @@ import {
   REDIS_TRIPS_AVAILABLE_CHANNEL,
   TRIP_ACCEPTED,
   TRIP_AVAILABLE,
-  TRIP_UPDATED_NEW_LOCATION,
-  TRIP_UPDATED_PICKED_UP,
+  TRIP_DROPPED_OFF,
+  TRIP_UPDATE_CURRENT_LOCATION,
+  TRIP_PICKED_UP,
   TripAcceptedMessage,
+  TripAvailableMessage,
+  TripUpdatedDropOffMessage,
   TripUpdatedNewLocationMessage,
+  TripUpdatedPickUpMessage,
 } from './types/trip';
 import { TripStatus, UserType } from './generated/prisma/enums';
 import jwt from 'jsonwebtoken';
@@ -18,8 +22,14 @@ import { JwtUberToken } from './types/express';
 import { prisma } from './db/prisma';
 import { publishToRedis } from './utils/redis';
 
-type RedisMessageHandler = (message: any) => void;
-type WebsocketMessageHandler = (message: any, userId: string) => void;
+type RedisMessageHandlerMessageTypes =
+  | TripAvailableMessage
+  | TripAcceptedMessage
+  | TripUpdatedPickUpMessage
+  | TripUpdatedNewLocationMessage
+  | TripUpdatedDropOffMessage;
+type RedisMessageHandler = (message: RedisMessageHandlerMessageTypes) => void;
+type WebsocketMessageHandler = (message: object, userId: string) => void;
 
 export class ConnectionManager {
   // userId: Websocket map
@@ -32,25 +42,20 @@ export class ConnectionManager {
   constructor(private redisSubscribe: Redis) {
     this.redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_CHANNEL);
 
-    this.registerHandlerForRedisChannel(
-      REDIS_TRIP_CHANNEL,
-      TRIP_ACCEPTED,
-      (msg: TripAcceptedMessage) => {
-        this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
-        this.sendMessageToAllDriversWebSocket(JSON.stringify(msg));
-      },
-    );
-    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_UPDATED_NEW_LOCATION, (msg) => {
-      this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
+    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, (msg) => {
+      this.sendMessageToRiderWebSocket(msg.rider_id, msg);
+      this.sendMessageToAllDriversWebSocket(msg);
     });
-    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_UPDATED_PICKED_UP, (msg) => {
-      this.sendMessageToRiderWebSocket(msg.rider_id, JSON.stringify(msg));
+    [TRIP_PICKED_UP, TRIP_DROPPED_OFF, TRIP_UPDATE_CURRENT_LOCATION].forEach((messageType) => {
+      this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, messageType, (msg) => {
+        this.sendMessageToRiderWebSocket(msg.rider_id, msg);
+      });
     });
     this.registerHandlerForRedisChannel(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
-      this.sendMessageToAllDriversWebSocket(msg.toString());
+      this.sendMessageToAllDriversWebSocket(msg);
     });
 
-    this.registerHandlerForWebsocket(TRIP_UPDATED_NEW_LOCATION, async (msg, userId) => {
+    this.registerHandlerForWebsocket(TRIP_UPDATE_CURRENT_LOCATION, async (msg, userId) => {
       // when drivers send location updates about trip:uuid
       const { tripId, currentGPSLatitude, currentGPSLongitude } =
         msg as TripUpdatedNewLocationMessage;
@@ -65,7 +70,7 @@ export class ConnectionManager {
       });
       if (trip) {
         const messageToSend: TripUpdatedNewLocationMessage = {
-          type: TRIP_UPDATED_NEW_LOCATION,
+          type: TRIP_UPDATE_CURRENT_LOCATION,
           tripId: trip.id,
           rider_id: trip.rider_id,
           currentGPSLatitude,
@@ -199,22 +204,22 @@ export class ConnectionManager {
     }
   }
 
-  sendMessageToRiderWebSocket(riderId: string, message: string) {
+  sendMessageToRiderWebSocket(riderId: string, message: object) {
     const socket = this.riderUserIdToWsConnectionMap.get(riderId);
     if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(message);
+      socket.send(JSON.stringify(message));
     }
   }
-  sendMessageToOneDriverWebSocket(driverId: string, message: string) {
+  sendMessageToOneDriverWebSocket(driverId: string, message: object) {
     const socket = this.driverUserIdToWsConnectionMap.get(driverId);
     if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(message);
+      socket.send(JSON.stringify(message));
     }
   }
-  sendMessageToAllDriversWebSocket(message: string) {
+  sendMessageToAllDriversWebSocket(message: object) {
     this.driverUserIdToWsConnectionMap.forEach((driver) => {
       if (driver.readyState === WebSocket.OPEN) {
-        driver.send(message.toString());
+        driver.send(JSON.stringify(message));
       }
     });
   }

@@ -3,7 +3,7 @@ import { redisPublish } from '../server';
 import {
   REDIS_TRIP_CHANNEL,
   REDIS_TRIPS_AVAILABLE_CHANNEL,
-  TRIP_UPDATED_NEW_LOCATION,
+  TRIP_UPDATE_CURRENT_LOCATION,
   TripAcceptedMessage,
   TripAvailableMessage,
   TripUpdatedDropOffMessage,

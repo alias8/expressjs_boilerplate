@@ -1,10 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
-import {
-  REDIS_TRIP_CHANNEL,
-  TRIP_UPDATED_PICKED_UP,
-  TripUpdatedPickUpMessage,
-} from '../../types/trip';
+import { REDIS_TRIP_CHANNEL, TRIP_PICKED_UP, TripUpdatedPickUpMessage } from '../../types/trip';
 import { TripStatus } from '../../generated/prisma/enums';
 import { getUserIdFromToken, userIsDriver } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
@@ -41,7 +37,7 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         },
       });
       const messageToSend: TripUpdatedPickUpMessage = {
-        type: TRIP_UPDATED_PICKED_UP,
+        type: TRIP_PICKED_UP,
         picked_up_at: trip.picked_up_at!,
         tripId,
         rider_id: trip.rider_id,
