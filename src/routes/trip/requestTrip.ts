@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
-import { redisPublish, redisSubscribe } from '../../server';
+import { redisSubscribe } from '../../server';
 import {
   REDIS_TRIP_CHANNEL,
   REDIS_TRIPS_AVAILABLE_CHANNEL,
@@ -26,10 +26,10 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const trip = await prisma.trip.create({
       data: {
-        startGPSLatitude,
-        startGPSLongitude,
-        endGPSLatitude,
-        endGPSLongitude,
+        startGPSLatitude_requested: startGPSLatitude,
+        startGPSLongitude_requested: startGPSLongitude,
+        endGPSLatitude_requested: endGPSLatitude,
+        endGPSLongitude_requested: endGPSLongitude,
         requested_at: new Date(),
         rider_id: userId,
         status: TripStatus.REQUESTED,
@@ -42,7 +42,7 @@ router.post('/', async (req: Request, res: Response) => {
       startGPSLongitude,
       endGPSLatitude,
       endGPSLongitude,
-      requested_at: new Date(),
+      requested_at: trip.requested_at,
       requested_by: userId,
     };
     publishToRedis(REDIS_TRIPS_AVAILABLE_CHANNEL, messageToSend);

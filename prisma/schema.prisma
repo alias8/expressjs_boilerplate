@@ -35,17 +35,22 @@ model Driver {
 }
 
 model Trip {
-  id                String     @id @default(uuid())
-  startGPSLatitude  Decimal    @db.Decimal(9, 6)
-  startGPSLongitude Decimal    @db.Decimal(9, 6)
-  endGPSLatitude    Decimal    @db.Decimal(9, 6)
-  endGPSLongitude   Decimal    @db.Decimal(9, 6)
-  requested_at      DateTime
-  accepted_at       DateTime?
-  picked_up_at      DateTime?
-  status            TripStatus
-  ratingForDriver   Rating?
-  ratingForRider    Rating?
+  id                          String     @id @default(uuid())
+  startGPSLatitude_requested  Decimal    @db.Decimal(9, 6)
+  startGPSLongitude_requested Decimal    @db.Decimal(9, 6)
+  endGPSLatitude_requested    Decimal    @db.Decimal(9, 6)
+  endGPSLongitude_requested   Decimal    @db.Decimal(9, 6)
+  startGPSLatitude_actual     Decimal?   @db.Decimal(9, 6)
+  startGPSLongitude_actual    Decimal?   @db.Decimal(9, 6)
+  endGPSLatitude_actual       Decimal?   @db.Decimal(9, 6)
+  endGPSLongitude_actual      Decimal?   @db.Decimal(9, 6)
+  requested_at                DateTime
+  accepted_at                 DateTime?
+  picked_up_at                DateTime?
+  dropped_off_at              DateTime?
+  status                      TripStatus
+  ratingForDriver             Rating?
+  ratingForRider              Rating?
 
   rider_id     String // FK column — matches User.user_id type (String)
   requested_by User   @relation("TripRider", fields: [rider_id], references: [user_id])

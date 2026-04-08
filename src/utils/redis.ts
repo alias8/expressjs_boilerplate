@@ -6,6 +6,7 @@ import {
   TRIP_UPDATED_NEW_LOCATION,
   TripAcceptedMessage,
   TripAvailableMessage,
+  TripUpdatedDropOffMessage,
   TripUpdatedNewLocationMessage,
   TripUpdatedPickUpMessage,
 } from '../types/trip';
@@ -21,6 +22,10 @@ export function publishToRedis(
 export function publishToRedis(
   channel: `${typeof REDIS_TRIP_CHANNEL}${string}`,
   message: TripUpdatedPickUpMessage,
+): void;
+export function publishToRedis(
+  channel: `${typeof REDIS_TRIP_CHANNEL}${string}`,
+  message: TripUpdatedDropOffMessage,
 ): void;
 export function publishToRedis(
   channel: typeof REDIS_TRIPS_AVAILABLE_CHANNEL,

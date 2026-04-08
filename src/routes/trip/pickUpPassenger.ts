@@ -1,9 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { prisma } from '../../db/prisma';
-import { redisPublish } from '../../server';
 import {
   REDIS_TRIP_CHANNEL,
-  REDIS_TRIPS_AVAILABLE_CHANNEL,
   TRIP_UPDATED_PICKED_UP,
   TripUpdatedPickUpMessage,
 } from '../../types/trip';
@@ -19,7 +17,7 @@ interface PickUpPassengerRequest {
 }
 
 // Pick up passenger
-router.put('/:tripId/pickup', async (req: Request, res: Response) => {
+router.put('/:tripId', async (req: Request, res: Response) => {
   const userId = getUserIdFromToken(req, res);
   if (!userId) return;
   const { isDriver, driverId } = await userIsDriver(userId, res);
@@ -44,12 +42,11 @@ router.put('/:tripId/pickup', async (req: Request, res: Response) => {
       });
       const messageToSend: TripUpdatedPickUpMessage = {
         type: TRIP_UPDATED_PICKED_UP,
-        status: TripStatus.IN_PROGRESS,
-        picked_up_at: new Date(),
+        picked_up_at: trip.picked_up_at!,
         tripId,
         rider_id: trip.rider_id,
-        currentGPSLatitude,
-        currentGPSLongitude,
+        startGPSLatitude_actual: currentGPSLatitude,
+        startGPSLongitude_actual: currentGPSLongitude,
       };
       publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend);
       return res.status(200).json({ trip: trip.id });
