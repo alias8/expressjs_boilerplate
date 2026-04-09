@@ -1,4 +1,8 @@
-import { REDIS_TRIP_CHANNEL, TRIP_UPDATE_CURRENT_LOCATION, TripUpdatedNewLocationMessage, } from '../../types/trip';
+import {
+  REDIS_TRIP_CHANNEL,
+  TRIP_UPDATE_CURRENT_LOCATION,
+  TripUpdatedNewLocationMessage,
+} from '../../types/trip';
 import { prisma } from '../../db/prisma';
 import { TripStatus } from '../../generated/prisma/enums';
 import { publishToRedis } from '../../utils/redis';
@@ -6,6 +10,7 @@ import { redisGeo } from '../../server';
 import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
 import type { RawData } from 'ws';
 import { UserId } from '../../types/user';
+import { REDIS_GEO_ACTIVE_DRIVER } from '../../routes/trip/estimateTrip';
 
 type WebsocketMessageHandler = (message: object, userId: UserId) => void;
 
@@ -50,12 +55,15 @@ export class WebSocketIncomingMessageService {
       publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend);
     }
     // Update position regardless of active trip — keeps geo pool fresh for matching
-    redisGeo.geoadd(
-      REDIS_DRIVER_LOCATION,
-      currentGPSLongitude, // longitude first
-      currentGPSLatitude, // latitude second
-      `${REDIS_DRIVER_LOCATION_PREFIX}${userId}`,
-    );
+    await Promise.all([
+      redisGeo.geoadd(
+        REDIS_DRIVER_LOCATION,
+        currentGPSLongitude,
+        currentGPSLatitude,
+        `${REDIS_DRIVER_LOCATION_PREFIX}${userId}`,
+      ),
+      redisGeo.set(`${REDIS_GEO_ACTIVE_DRIVER}${userId}`, '1', 'EX', 30),
+    ]);
   }
 
   handleIncomingWebsocketMessage(userId: UserId, message: RawData) {

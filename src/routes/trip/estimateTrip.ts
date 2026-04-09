@@ -11,6 +11,7 @@ const FLAT_FEE = 10;
 const KM_COST_RATE = 2;
 export const REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER = 'userLookingForDriver';
 export const REDIS_GEO_ACTIVE_RIDER = `riderActive:`;
+export const REDIS_GEO_ACTIVE_DRIVER = `driverActive:`;
 
 // Estimate a trip
 router.get('/', async (req: Request, res: Response) => {
@@ -99,7 +100,7 @@ async function getSurgeMultiplier(currentGPSLatitude: number, currentGPSLongitud
   }
 }
 
-export async function findNearbyRidersLookingForTrip(
+async function findNearbyRidersLookingForTrip(
   currentGPSLatitude: number,
   currentGPSLongitude: number,
 ) {

@@ -16,9 +16,11 @@ import { redisGeo, redisSubscribe } from '../../server';
 import { WebSocket } from 'ws';
 import { driverUserIdToWsConnectionMap, riderUserIdToWsConnectionMap } from './utils';
 import {
+  REDIS_GEO_ACTIVE_DRIVER,
   REDIS_GEO_ACTIVE_RIDER,
   REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER,
 } from '../../routes/trip/estimateTrip';
+import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
 
 type RedisMessageHandlerMessageTypes =
   | TripAvailableMessage
@@ -34,6 +36,7 @@ export class RedisIncomingMessageService {
 
   constructor() {
     this.setupHandlingOfRedisIncomingMessages();
+    this.setupRedisSubscribeOnMessage();
     this.setupClearingRedisGeoRiderLookingForDriver();
   }
 
@@ -59,13 +62,18 @@ export class RedisIncomingMessageService {
       // todo: if drivers and riders had blocked each other, we should store this in a redis map and check it before broadcasting to each driver
       this.sendMessageToAllDriversWebSocket(msg);
     });
+  }
 
+  setupRedisSubscribeOnMessage() {
     redisSubscribe.on('message', (channel, message) => {
       if (channel === '__keyevent@0__:expired') {
+        // When the TTL for redis expires every minute, this code will run
         if (message.startsWith(REDIS_GEO_ACTIVE_RIDER)) {
-          // When the TTL for redis expires every minute, this code will run
           const userId = message.replace(REDIS_GEO_ACTIVE_RIDER, '');
           redisGeo.zrem(REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, userId);
+        } else if (message.startsWith(REDIS_GEO_ACTIVE_DRIVER)) {
+          const userId = message.replace(REDIS_GEO_ACTIVE_DRIVER, '');
+          redisGeo.zrem(REDIS_DRIVER_LOCATION, `${REDIS_DRIVER_LOCATION_PREFIX}${userId}`);
         }
         return; // future expiry handlers go here
       }
