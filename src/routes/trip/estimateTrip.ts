@@ -3,6 +3,7 @@ import { getJwtToken } from '../../utils/db/user';
 import haversine from 'haversine-distance';
 import { findNearbyDrivers, NEARBY_DRIVER_SEARCH_DEFAULT_RADIUS } from './nearbyDrivers';
 import { redisGeo } from '../../server';
+import { asUserId } from '../../types/user';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ export const REDIS_GEO_ACTIVE_RIDER = `riderActive:`;
 router.get('/', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;
-  const { userId } = token;
+  const userId = asUserId(token.userId);
 
   try {
     const { startGPSLatitude, startGPSLongitude, endGPSLatitude, endGPSLongitude } = req.query;
@@ -65,7 +66,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.delete('/', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;
-  const { userId } = token;
+  const userId = asUserId(token.userId);
   try {
     await redisGeo.zrem(REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, userId);
     return res.status(200).json({ success: true });

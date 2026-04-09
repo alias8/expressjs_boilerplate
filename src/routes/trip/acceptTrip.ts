@@ -6,6 +6,7 @@ import { getJwtToken, userIsDriver } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
 import { redisGeo } from '../../server';
 import { REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER } from './estimateTrip';
+import { asUserId } from '../../types/user';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const router = Router();
 router.put('/:tripId', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;
-  const { userId } = token;
+  const userId = asUserId(token.userId);
   const { isDriver, driverId } = await userIsDriver(userId, res);
   if (!isDriver) return;
   const tripId = req.params.tripId as string;

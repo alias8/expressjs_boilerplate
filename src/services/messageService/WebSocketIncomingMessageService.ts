@@ -1,4 +1,8 @@
-import { REDIS_TRIP_CHANNEL, TRIP_UPDATE_CURRENT_LOCATION, TripUpdatedNewLocationMessage, } from '../../types/trip';
+import {
+  REDIS_TRIP_CHANNEL,
+  TRIP_UPDATE_CURRENT_LOCATION,
+  TripUpdatedNewLocationMessage,
+} from '../../types/trip';
 import { prisma } from '../../db/prisma';
 import { TripStatus } from '../../generated/prisma/enums';
 import { publishToRedis } from '../../utils/redis';

@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { redisGeo } from '../../server';
 import { getJwtToken, riderCanRequest } from '../../utils/db/user';
 import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
+import { asUserId } from '../../types/user';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ export const NEARBY_DRIVER_SEARCH_DEFAULT_RADIUS = 20;
 router.post('/', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;
-  const { userId } = token;
+  const userId = asUserId(token.userId);
   if (!(await riderCanRequest(userId, res))) return;
 
   const { currentGPSLatitude, currentGPSLongitude } = req.body as FindNearbyDriversRequest;

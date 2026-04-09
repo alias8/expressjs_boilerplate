@@ -4,6 +4,7 @@ import { REDIS_TRIP_CHANNEL, TRIP_PICKED_UP, TripUpdatedPickUpMessage } from '..
 import { TripStatus } from '../../generated/prisma/enums';
 import { getJwtToken, userIsDriver } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
+import { asUserId } from '../../types/user';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ interface PickUpPassengerRequest {
 router.put('/:tripId', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;
-  const { userId } = token;
+  const userId = asUserId(token.userId);
   const { isDriver, driverId } = await userIsDriver(userId, res);
   if (!isDriver) return;
   const tripId = req.params.tripId as string;

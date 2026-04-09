@@ -1,6 +1,7 @@
 import { prisma } from '../../db/prisma';
 import { Request, Response } from 'express';
 import { DriverStatus, TripStatus, UserType } from '../../generated/prisma/enums';
+import { asUserId } from '../../types/user';
 
 export const searchUsersByUsername = async (username: string) => {
   return prisma.user.findMany({
@@ -81,5 +82,5 @@ export function getJwtToken(req: Request, res: Response) {
     res.status(404).json({ error: 'UserId or userType missing in token' });
     return false;
   }
-  return { userId, userType };
+  return { userId, userType: asUserId(userType) };
 }
