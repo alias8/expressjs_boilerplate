@@ -4,10 +4,12 @@ import { REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, TripAcceptedMessage } from '../../ty
 import { TripStatus } from '../../generated/prisma/enums';
 import { getJwtToken, userIsDriver } from '../../utils/db/user';
 import { publishToRedis } from '../../utils/redis';
+import { redisGeo } from '../../server';
+import { REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER } from './estimateTrip';
 
 const router = Router();
 
-// Accept a trip
+// Driver accepts a trip
 router.put('/:tripId', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;
@@ -40,6 +42,8 @@ router.put('/:tripId', async (req: Request, res: Response) => {
         accepted_at: trip.accepted_at!,
       };
       publishToRedis(`${REDIS_TRIP_CHANNEL}${tripId}`, messageToSend);
+      // Remove rider from redis "looking for driver pool"
+      await redisGeo.zrem(REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, trip.rider_id);
       return res.status(200).json({ trip: trip.id });
     });
   } catch (e) {

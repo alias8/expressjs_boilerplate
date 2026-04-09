@@ -10,7 +10,7 @@ interface FindNearbyDriversRequest {
   currentGPSLongitude: number;
 }
 
-export type NearbyDriverResult = [string, [string, string]];
+export type NearbyDriverOrRiderResult = [string, [string, string]];
 
 export const NEARBY_DRIVER_SEARCH_DEFAULT_RADIUS = 20;
 
@@ -32,7 +32,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-async function findNearbyDrivers(currentGPSLatitude: number, currentGPSLongitude: number) {
+export async function findNearbyDrivers(currentGPSLatitude: number, currentGPSLongitude: number) {
   return await redisGeo
     .geosearch(
       REDIS_DRIVER_LOCATION,
@@ -45,7 +45,7 @@ async function findNearbyDrivers(currentGPSLatitude: number, currentGPSLongitude
       'WITHCOORD',
     )
     .then((result) => {
-      return (result as NearbyDriverResult[]).map((result) => {
+      return (result as NearbyDriverOrRiderResult[]).map((result) => {
         return {
           driverId: result[0].replace(REDIS_DRIVER_LOCATION_PREFIX, ''),
           longitude: result[1][0],

@@ -1,9 +1,8 @@
-import { Redis } from 'ioredis';
 import { WebSocket } from 'ws';
 import http from 'http';
 import { REDIS_TRIPS_AVAILABLE_CHANNEL } from './types/trip';
 import { UserType } from './generated/prisma/enums';
-import { redisGeo } from './server';
+import { redisGeo, redisSubscribe } from './server';
 import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from './types/drivers';
 import { MessageService } from './services/messageService/MessageService';
 import {
@@ -13,10 +12,8 @@ import {
 import { getUserIdFromWebsocket } from './middleware/auth';
 
 export class WebsocketConnectionManager {
-  // userId: Websocket map
-
-  constructor(private redisSubscribe: Redis) {
-    this.redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_CHANNEL);
+  constructor() {
+    redisSubscribe.subscribe(REDIS_TRIPS_AVAILABLE_CHANNEL);
   }
 
   /*

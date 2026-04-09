@@ -19,6 +19,10 @@ import { redisGeo, redisSubscribe } from '../../server';
 import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
 import { type RawData, WebSocket } from 'ws';
 import { driverUserIdToWsConnectionMap, riderUserIdToWsConnectionMap } from './utils';
+import {
+  REDIS_GEO_ACTIVE_RIDER,
+  REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER,
+} from '../../routes/trip/estimateTrip';
 
 type RedisMessageHandlerMessageTypes =
   | TripAvailableMessage
@@ -37,9 +41,18 @@ export class MessageService {
   constructor() {
     this.setupHandlingOfRedisIncomingMessages();
     this.setupHandlingOfWebsocketIncomingMessages();
+    this.clearRedisGeoRiderLookingForDriver();
   }
 
+  clearRedisGeoRiderLookingForDriver() {
+    redisSubscribe.config('SET', 'notify-keyspace-events', 'Ex'); // Enable expired events
+    redisSubscribe.subscribe('__keyevent@0__:expired');
+  }
+
+  // This is for handling when a message is published to redis through redis, what should the server do with it?
+  // We need to send it to the appropriate websocket
   setupHandlingOfRedisIncomingMessages() {
+    // This pattern is called Handler Registry (also known as a Command/Handler Map or Dispatch Table)
     this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, (msg) => {
       this.sendMessageToRiderWebSocket(msg.rider_id, msg);
       this.sendMessageToAllDriversWebSocket(msg);
@@ -54,22 +67,30 @@ export class MessageService {
       this.sendMessageToAllDriversWebSocket(msg);
     });
 
-    redisSubscribe.on('messageBuffer', (channel, message) => {
-      const parsed = JSON.parse(message.toString());
-      const channelStr = channel.toString(); // trip:123 or trips:available:syd
+    redisSubscribe.on('message', (channel, message) => {
+      if (channel === '__keyevent@0__:expired') {
+        if (message.startsWith(REDIS_GEO_ACTIVE_RIDER)) {
+          // When the TTL for redis expires every minute, this code will run
+          const userId = message.replace(REDIS_GEO_ACTIVE_RIDER, '');
+          redisGeo.zrem(REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, userId);
+        }
+        return; // future expiry handlers go here
+      }
 
+      // All other channels carry JSON
+      const parsed = JSON.parse(message.toString());
+      const channelStr = channel.toString();
       for (const [prefix, messageTypeToHandlerMap] of this.redisChannelsToWebsocketHandlersMap) {
-        // eg. channelStr is "trip:12345"
-        // prefix is "trip:"
         if (channelStr.startsWith(prefix)) {
           const messageTypeHandler = messageTypeToHandlerMap.get(parsed.type);
           messageTypeHandler?.(parsed);
-          break; // channels won't match two prefixes, so stop early
+          break;
         }
       }
     });
   }
 
+  // This is for handling when a driver or rider sends information over websocket to the server
   setupHandlingOfWebsocketIncomingMessages() {
     this.registerHandlerForWebsocket(TRIP_UPDATE_CURRENT_LOCATION, async (msg, userId) => {
       await this.updateLocationHandler(msg, userId);

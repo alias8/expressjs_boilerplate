@@ -14,7 +14,7 @@ import { publishToRedis } from '../../utils/redis';
 
 const router = Router();
 
-// Request a trip
+// Rider requests a trip
 router.post('/', async (req: Request, res: Response) => {
   const token = getJwtToken(req, res);
   if (!token) return;

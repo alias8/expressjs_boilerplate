@@ -4,7 +4,8 @@ import acceptTripRouter from './trip/acceptTrip';
 import pickUpPassengerRouter from './trip/pickUpPassenger';
 import dropOffPassengerRouter from './trip/dropOffPassenger';
 import rateRouter from './trip/rateTrip';
-import nearbyDrivers from './trip/nearbyDrivers';
+import nearbyDriversRouter from './trip/nearbyDrivers';
+import estimateTripRouter from './trip/estimateTrip';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use('/accept', acceptTripRouter);
 router.use('/pickup', pickUpPassengerRouter);
 router.use('/dropoff', dropOffPassengerRouter);
 router.use('/rate', rateRouter);
-router.use('/nearbydrivers', nearbyDrivers);
+router.use('/nearbydrivers', nearbyDriversRouter);
+router.use('/estimate', estimateTripRouter);
 
 export default router;
