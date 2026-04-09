@@ -5,6 +5,7 @@ import { WebSocket } from 'ws';
 import http from 'http';
 import { UserType } from '../generated/prisma/enums';
 import { URL } from 'node:url';
+import { asUserId, UserId } from '../types/user';
 
 const PUBLIC_ROUTES = [
   { path: '/users/login', method: 'POST' },
@@ -34,7 +35,7 @@ export const authenticateJwtToken = (req: Request, res: Response, next: NextFunc
 export function getUserIdFromWebsocket(
   ws: WebSocket,
   req: http.IncomingMessage,
-): false | { userId: string; userType: UserType } {
+): false | { userId: UserId; userType: UserType } {
   const { url } = req;
   if (!url) {
     console.error(`No url in websocket req, closing connection`);
@@ -57,7 +58,7 @@ export function getUserIdFromWebsocket(
         console.error(`userType in jwt must be ${UserType.DRIVER} or ${UserType.RIDER}`);
         return false;
       }
-      return { userId, userType: userType as UserType };
+      return { userId: asUserId(userId), userType: userType as UserType };
     }
     return false;
   } catch (e) {

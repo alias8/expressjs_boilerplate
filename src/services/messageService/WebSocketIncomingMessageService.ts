@@ -1,16 +1,13 @@
-import {
-  REDIS_TRIP_CHANNEL,
-  TRIP_UPDATE_CURRENT_LOCATION,
-  TripUpdatedNewLocationMessage,
-} from '../../types/trip';
+import { REDIS_TRIP_CHANNEL, TRIP_UPDATE_CURRENT_LOCATION, TripUpdatedNewLocationMessage, } from '../../types/trip';
 import { prisma } from '../../db/prisma';
 import { TripStatus } from '../../generated/prisma/enums';
 import { publishToRedis } from '../../utils/redis';
 import { redisGeo } from '../../server';
 import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
 import type { RawData } from 'ws';
+import { UserId } from '../../types/user';
 
-type WebsocketMessageHandler = (message: object, userId: string) => void;
+type WebsocketMessageHandler = (message: object, userId: UserId) => void;
 
 export class WebSocketIncomingMessageService {
   private webSocketMessageTypeToHandlerMap = new Map<string, WebsocketMessageHandler>();
@@ -29,14 +26,14 @@ export class WebSocketIncomingMessageService {
     this.webSocketMessageTypeToHandlerMap.set(messageType, handler);
   }
 
-  async updateDriverLocationHandler(msg: object, userId: string) {
+  async updateDriverLocationHandler(msg: object, userId: UserId) {
     // when drivers send location updates about trip:uuid
     const { tripId, currentGPSLatitude, currentGPSLongitude } =
       msg as TripUpdatedNewLocationMessage;
     const trip = await prisma.trip.findFirst({
       where: {
         id: tripId,
-        driver_id: userId,
+        accepted_by: { user_id: userId },
         status: {
           in: [TripStatus.ACCEPTED, TripStatus.IN_PROGRESS],
         },
@@ -61,7 +58,7 @@ export class WebSocketIncomingMessageService {
     );
   }
 
-  handleIncomingWebsocketMessage(userId: string, message: RawData) {
+  handleIncomingWebsocketMessage(userId: UserId, message: RawData) {
     try {
       const parsedMessage = JSON.parse(message.toString());
       const webSocketHandler = this.webSocketMessageTypeToHandlerMap.get(parsedMessage.type);

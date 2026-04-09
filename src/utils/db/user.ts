@@ -1,7 +1,7 @@
 import { prisma } from '../../db/prisma';
 import { Request, Response } from 'express';
 import { DriverStatus, TripStatus, UserType } from '../../generated/prisma/enums';
-import { asUserId } from '../../types/user';
+import { asDriverId, asUserId } from '../../types/user';
 
 export const searchUsersByUsername = async (username: string) => {
   return prisma.user.findMany({
@@ -69,9 +69,9 @@ export async function userIsDriver(userId: string, res: Response) {
       error:
         'User is either: 1. not a driver or 2. a driver, but not in the AVAILABLE_FOR_TRIPS status',
     });
-    return { isDriver: false, driverId: '' };
+    return { isDriver: false, driverId: asDriverId('') };
   }
-  return { isDriver: true, driverId: driver.driver_id };
+  return { isDriver: true, driverId: asDriverId(driver.driver_id) };
 }
 
 export function getJwtToken(req: Request, res: Response) {
