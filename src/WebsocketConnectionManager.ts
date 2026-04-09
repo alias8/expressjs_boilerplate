@@ -4,12 +4,12 @@ import { REDIS_TRIPS_AVAILABLE_CHANNEL } from './types/trip';
 import { UserType } from './generated/prisma/enums';
 import { redisGeo, redisSubscribe } from './server';
 import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from './types/drivers';
-import { MessageService } from './services/messageService/MessageService';
 import {
   driverUserIdToWsConnectionMap,
   riderUserIdToWsConnectionMap,
 } from './services/messageService/utils';
 import { getUserIdFromWebsocket } from './middleware/auth';
+import { WebSocketIncomingMessageService } from './services/messageService/WebSocketIncomingMessageService';
 
 export class WebsocketConnectionManager {
   constructor() {
@@ -23,14 +23,18 @@ export class WebsocketConnectionManager {
   - Stored their socket in userIdToWsConnectionMap (userId → ws)
   - Subscribed Redis to the channel user:<userId> for that user
   * */
-  handleConnection(ws: WebSocket, req: http.IncomingMessage, messageService: MessageService) {
+  handleConnection(
+    ws: WebSocket,
+    req: http.IncomingMessage,
+    webSocketMessageService: WebSocketIncomingMessageService,
+  ) {
     const verify = getUserIdFromWebsocket(ws, req);
     if (verify) {
       const { userId, userType } = verify;
       this.add(userId, userType, ws);
       // incoming Websocket Messages Listener
       ws.on('message', async (message) => {
-        messageService.handleIncomingWebsocketMessage(userId, message);
+        webSocketMessageService.handleIncomingWebsocketMessage(userId, message);
       });
       // handle websocket Close Connection
       ws.on('close', async () => {
