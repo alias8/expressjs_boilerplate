@@ -7,10 +7,13 @@ import { prisma } from '../../db/prisma';
 import { TripStatus } from '../../generated/prisma/enums';
 import { publishToRedis } from '../../utils/redis';
 import { redisGeo } from '../../server';
-import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
+import {
+  REDIS_DRIVER_LOCATION,
+  REDIS_DRIVER_LOCATION_PREFIX,
+  REDIS_GEO_ACTIVE_DRIVER,
+} from '../../types/drivers';
 import type { RawData } from 'ws';
 import { UserId } from '../../types/user';
-import { REDIS_GEO_ACTIVE_DRIVER } from '../../routes/trip/estimateTrip';
 
 type WebsocketMessageHandler = (message: object, userId: UserId) => void;
 

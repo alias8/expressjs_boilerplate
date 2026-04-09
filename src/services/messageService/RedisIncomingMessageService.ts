@@ -16,11 +16,14 @@ import { redisGeo, redisSubscribe } from '../../server';
 import { WebSocket } from 'ws';
 import { driverUserIdToWsConnectionMap, riderUserIdToWsConnectionMap } from './utils';
 import {
-  REDIS_GEO_ACTIVE_DRIVER,
   REDIS_GEO_ACTIVE_RIDER,
   REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER,
 } from '../../routes/trip/estimateTrip';
-import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX } from '../../types/drivers';
+import {
+  REDIS_DRIVER_LOCATION,
+  REDIS_DRIVER_LOCATION_PREFIX,
+  REDIS_GEO_ACTIVE_DRIVER,
+} from '../../types/drivers';
 
 type RedisMessageHandlerMessageTypes =
   | TripAvailableMessage
