@@ -1,6 +1,4 @@
 import {
-  REDIS_TRIP_CHANNEL,
-  TRIP_PICKED_UP,
   TripAcceptedMessage,
   TripAvailableMessage,
   TripUpdatedDropOffMessage,
@@ -10,15 +8,8 @@ import {
 import { redisGeo, redisSubscribe } from '../../server';
 import { WebSocket } from 'ws';
 import { driverUserIdToWsConnectionMap, riderUserIdToWsConnectionMap } from './utils';
-import {
-  REDIS_GEO_ACTIVE_RIDER,
-  REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER,
-} from '../../routes/trip/estimateTrip';
-import {
-  REDIS_DRIVER_LOCATION,
-  REDIS_DRIVER_LOCATION_PREFIX,
-  REDIS_GEO_ACTIVE_DRIVER,
-} from '../../types/drivers';
+import { REDIS_GEO_ACTIVE_RIDER, REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, } from '../../routes/trip/estimateTrip';
+import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX, REDIS_GEO_ACTIVE_DRIVER, } from '../../types/drivers';
 
 type RedisMessageHandlerMessageTypes =
   | TripAvailableMessage
@@ -40,19 +31,6 @@ export class RedisIncomingMessageService {
   setupClearingRedisGeoRiderLookingForDriver() {
     redisSubscribe.config('SET', 'notify-keyspace-events', 'Ex'); // Enable expired events
     redisSubscribe.subscribe('__keyevent@0__:expired');
-  }
-
-  // This is for handling when a message is published to redis through redis, what should the server do with it?
-  // We need to send it to the appropriate websocket
-  setupHandlingOfRedisIncomingMessages() {
-    // This pattern is called Handler Registry (also known as a Command/Handler Map or Dispatch Table)
-    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_PICKED_UP, (msg) => {
-      this.sendMessageToRiderWebSocket(msg.rider_id, msg);
-    });
-    this.registerHandlerForRedisChannel(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
-      // todo: if drivers and riders had blocked each other, we should store this in a redis map and check it before broadcasting to each driver
-      this.sendMessageToAllDriversWebSocket(msg);
-    });
   }
 
   setupRedisSubscribeOnMessage() {
