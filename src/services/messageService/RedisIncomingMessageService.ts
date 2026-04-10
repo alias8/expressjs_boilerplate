@@ -1,11 +1,6 @@
 import {
   REDIS_TRIP_CHANNEL,
-  REDIS_TRIPS_AVAILABLE_CHANNEL,
-  TRIP_ACCEPTED,
-  TRIP_AVAILABLE,
-  TRIP_DROPPED_OFF,
   TRIP_PICKED_UP,
-  TRIP_UPDATE_CURRENT_LOCATION,
   TripAcceptedMessage,
   TripAvailableMessage,
   TripUpdatedDropOffMessage,
@@ -31,14 +26,13 @@ type RedisMessageHandlerMessageTypes =
   | TripUpdatedPickUpMessage
   | TripUpdatedNewLocationMessage
   | TripUpdatedDropOffMessage;
-type RedisMessageHandler = (message: RedisMessageHandlerMessageTypes) => void;
+export type RedisMessageHandler = (message: RedisMessageHandlerMessageTypes) => void;
 
 export class RedisIncomingMessageService {
   // A map of channel prefix → (messageType → handler)
   private redisChannelsToWebsocketHandlersMap = new Map<string, Map<string, RedisMessageHandler>>();
 
   constructor() {
-    this.setupHandlingOfRedisIncomingMessages();
     this.setupRedisSubscribeOnMessage();
     this.setupClearingRedisGeoRiderLookingForDriver();
   }
@@ -52,14 +46,8 @@ export class RedisIncomingMessageService {
   // We need to send it to the appropriate websocket
   setupHandlingOfRedisIncomingMessages() {
     // This pattern is called Handler Registry (also known as a Command/Handler Map or Dispatch Table)
-    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_ACCEPTED, (msg) => {
+    this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, TRIP_PICKED_UP, (msg) => {
       this.sendMessageToRiderWebSocket(msg.rider_id, msg);
-      this.sendMessageToAllDriversWebSocket(msg);
-    });
-    [TRIP_PICKED_UP, TRIP_DROPPED_OFF, TRIP_UPDATE_CURRENT_LOCATION].forEach((messageType) => {
-      this.registerHandlerForRedisChannel(REDIS_TRIP_CHANNEL, messageType, (msg) => {
-        this.sendMessageToRiderWebSocket(msg.rider_id, msg);
-      });
     });
     this.registerHandlerForRedisChannel(REDIS_TRIPS_AVAILABLE_CHANNEL, TRIP_AVAILABLE, (msg) => {
       // todo: if drivers and riders had blocked each other, we should store this in a redis map and check it before broadcasting to each driver

@@ -15,7 +15,7 @@ import {
 import type { RawData } from 'ws';
 import { UserId } from '../../types/user';
 
-type WebsocketMessageHandler = (message: object, userId: UserId) => void;
+export type WebsocketMessageHandler = (message: object, userId: UserId) => void;
 
 export class WebSocketIncomingMessageService {
   private webSocketMessageTypeToHandlerMap = new Map<string, WebsocketMessageHandler>();

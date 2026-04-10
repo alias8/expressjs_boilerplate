@@ -6,6 +6,7 @@ import { Redis } from 'ioredis';
 import { WebsocketConnectionManager } from './WebsocketConnectionManager';
 import { RedisIncomingMessageService } from './services/messageService/RedisIncomingMessageService';
 import { WebSocketIncomingMessageService } from './services/messageService/WebSocketIncomingMessageService';
+import { setupWebsocketAndRedisEventWiring } from './websocketAndRedisEventWiring';
 
 const port = process.env.PORT ?? 3000;
 /*
@@ -25,8 +26,9 @@ server.listen(port, () => {
 const wss = new Server({ server });
 
 export const connectionManager = new WebsocketConnectionManager();
-new RedisIncomingMessageService();
+export const redisIncomingMessageService = new RedisIncomingMessageService();
 export const webSocketIncomingMessageService = new WebSocketIncomingMessageService();
 wss.on('connection', (ws, req) =>
   connectionManager.handleConnection(ws, req, webSocketIncomingMessageService),
 );
+setupWebsocketAndRedisEventWiring(redisIncomingMessageService, webSocketIncomingMessageService);
