@@ -1,23 +1,8 @@
-import {
-  TripAcceptedMessage,
-  TripAvailableMessage,
-  TripUpdatedDropOffMessage,
-  TripUpdatedNewLocationMessage,
-  TripUpdatedPickUpMessage,
-} from '../../types/trip';
-import { redisGeo, redisSubscribe } from '../../server';
+import { redisSubscribe } from '../../server';
 import { WebSocket } from 'ws';
-import { driverUserIdToWsConnectionMap, riderUserIdToWsConnectionMap } from './utils';
-import { REDIS_GEO_ACTIVE_RIDER, REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, } from '../../routes/trip/estimateTrip';
-import { REDIS_DRIVER_LOCATION, REDIS_DRIVER_LOCATION_PREFIX, REDIS_GEO_ACTIVE_DRIVER, } from '../../types/drivers';
+import { userIdToWsConnectionMap } from './utils';
 
-type RedisMessageHandlerMessageTypes =
-  | TripAvailableMessage
-  | TripAcceptedMessage
-  | TripUpdatedPickUpMessage
-  | TripUpdatedNewLocationMessage
-  | TripUpdatedDropOffMessage;
-export type RedisMessageHandler = (message: RedisMessageHandlerMessageTypes) => void;
+export type RedisMessageHandler = (message: object) => void;
 
 export class RedisIncomingMessageService {
   // A map of channel prefix → (messageType → handler)
@@ -25,29 +10,11 @@ export class RedisIncomingMessageService {
 
   constructor() {
     this.setupRedisSubscribeOnMessage();
-    this.setupClearingRedisGeoRiderLookingForDriver();
-  }
-
-  setupClearingRedisGeoRiderLookingForDriver() {
-    redisSubscribe.config('SET', 'notify-keyspace-events', 'Ex'); // Enable expired events
-    redisSubscribe.subscribe('__keyevent@0__:expired');
   }
 
   setupRedisSubscribeOnMessage() {
     redisSubscribe.on('message', (channel, message) => {
-      if (channel === '__keyevent@0__:expired') {
-        // When the TTL for redis expires every minute, this code will run
-        if (message.startsWith(REDIS_GEO_ACTIVE_RIDER)) {
-          const userId = message.replace(REDIS_GEO_ACTIVE_RIDER, '');
-          redisGeo.zrem(REDIS_GEO_KEY_USER_LOOKING_FOR_DRIVER, userId);
-        } else if (message.startsWith(REDIS_GEO_ACTIVE_DRIVER)) {
-          const userId = message.replace(REDIS_GEO_ACTIVE_DRIVER, '');
-          redisGeo.zrem(REDIS_DRIVER_LOCATION, `${REDIS_DRIVER_LOCATION_PREFIX}${userId}`);
-        }
-        return; // future expiry handlers go here
-      }
-
-      // All other channels carry JSON
+      // All channels carry JSON with a `type` field
       const parsed = JSON.parse(message.toString());
       const channelStr = channel.toString();
       for (const [prefix, messageTypeToHandlerMap] of this.redisChannelsToWebsocketHandlersMap) {
@@ -60,17 +27,16 @@ export class RedisIncomingMessageService {
     });
   }
 
-  // Register a handler
+  // Register a handler for a channel prefix + message type combination.
+  // channelPrefix can match exact channels or channel prefixes (e.g. 'user:' matches 'user:123').
   registerHandlerForRedisChannel(
     channelPrefix: string,
     messageType: string,
     handler: RedisMessageHandler,
   ) {
-    // eg. channelPrefix will be "trip:"
     if (!this.redisChannelsToWebsocketHandlersMap.has(channelPrefix)) {
       this.redisChannelsToWebsocketHandlersMap.set(channelPrefix, new Map());
     }
-    // handlerMap for channel "trip:"
     const websocketHandlersForRedisChannel =
       this.redisChannelsToWebsocketHandlersMap.get(channelPrefix);
     if (websocketHandlersForRedisChannel !== undefined) {
@@ -83,16 +49,17 @@ export class RedisIncomingMessageService {
     }
   }
 
-  sendMessageToRiderWebSocket(riderId: string, message: object) {
-    const socket = riderUserIdToWsConnectionMap.get(riderId);
+  sendMessageToUserWebSocket(userId: string, message: object) {
+    const socket = userIdToWsConnectionMap.get(userId);
     if (socket?.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(message));
     }
   }
-  sendMessageToAllDriversWebSocket(message: object) {
-    driverUserIdToWsConnectionMap.forEach((driver) => {
-      if (driver.readyState === WebSocket.OPEN) {
-        driver.send(JSON.stringify(message));
+
+  broadcastMessageToAllConnectedUsers(message: object) {
+    userIdToWsConnectionMap.forEach((ws) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
       }
     });
   }

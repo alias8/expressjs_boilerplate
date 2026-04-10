@@ -4,7 +4,6 @@ import logger from 'morgan';
 import cookieParser from 'cookie-parser';
 import createError, { HttpError } from 'http-errors';
 
-import tripRouter from './routes/trip';
 import usersRouter from './routes/users';
 import { authenticateJwtToken } from './middleware/auth';
 
@@ -16,16 +15,19 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(authenticateJwtToken);
 
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
 app.use('/users', usersRouter);
-app.use('/trip', tripRouter); // protected route
 
 // 404 handler
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((_req: Request, _res: Response, next: NextFunction) => {
   next(createError(404));
 });
 
 // error handler
-app.use((err: HttpError, req: Request, res: Response, next: NextFunction) => {
+app.use((err: HttpError, _req: Request, res: Response, _next: NextFunction) => {
   res.status(err.status || 500).json({ error: err.message });
 });
 

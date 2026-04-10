@@ -1,9 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { NextFunction, Request, Response } from 'express';
-import { JwtUberToken } from '../types/express';
+import { JwtToken } from '../types/express';
 import { WebSocket } from 'ws';
 import http from 'http';
-import { UserType } from '../generated/prisma/enums';
 import { URL } from 'node:url';
 import { asUserId, UserId } from '../types/user';
 
@@ -21,9 +20,9 @@ export const authenticateJwtToken = (req: Request, res: Response, next: NextFunc
 
   try {
     const decodedJwtToken = jwt.verify(token, process.env.JWT_SECRET!);
-    if (typeof decodedJwtToken != 'string' && decodedJwtToken !== undefined) {
-      req.jwtToken = decodedJwtToken as JwtUberToken; // Attach decoded payload to request
-      next(); // Proceed to the next middleware or route handler
+    if (typeof decodedJwtToken !== 'string' && decodedJwtToken !== undefined) {
+      req.jwtToken = decodedJwtToken as JwtToken;
+      next();
     } else {
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
@@ -35,7 +34,7 @@ export const authenticateJwtToken = (req: Request, res: Response, next: NextFunc
 export function getUserIdFromWebsocket(
   ws: WebSocket,
   req: http.IncomingMessage,
-): false | { userId: UserId; userType: UserType } {
+): false | { userId: UserId } {
   const { url } = req;
   if (!url) {
     console.error(`No url in websocket req, closing connection`);
@@ -43,8 +42,7 @@ export function getUserIdFromWebsocket(
     return false;
   }
   const myUrl = new URL(url, 'http://localhost:3000');
-  const params = myUrl.searchParams;
-  const jwtToken = params.get('token');
+  const jwtToken = myUrl.searchParams.get('token');
   if (!jwtToken) {
     console.error(`Jwt token not present in url`);
     return false;
@@ -52,13 +50,9 @@ export function getUserIdFromWebsocket(
 
   try {
     const decodedToken = jwt.verify(jwtToken, process.env.JWT_SECRET!);
-    if (typeof decodedToken != 'string' && decodedToken !== undefined) {
-      const { userId, userType } = decodedToken as JwtUberToken;
-      if (userType !== UserType.DRIVER && userType !== UserType.RIDER) {
-        console.error(`userType in jwt must be ${UserType.DRIVER} or ${UserType.RIDER}`);
-        return false;
-      }
-      return { userId: asUserId(userId), userType: userType as UserType };
+    if (typeof decodedToken !== 'string' && decodedToken !== undefined) {
+      const { userId } = decodedToken as JwtToken;
+      return { userId: asUserId(userId) };
     }
     return false;
   } catch (e) {

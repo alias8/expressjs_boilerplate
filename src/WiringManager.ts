@@ -13,7 +13,7 @@ export class WiringManager {
     private webSocketIncomingMessageService: WebSocketIncomingMessageService,
   ) {}
 
-  // For events where a driver sends over WS → server publishes to Redis → server forwards to rider WS
+  // For events where a client sends over WS → server publishes to Redis → server forwards to another client's WS
   wireWebsocketToRedisPipeline(
     websocketIncomingName: string,
     webSocketIncomingHandler: WebsocketMessageHandler,

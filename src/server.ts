@@ -9,12 +9,17 @@ import { WebSocketIncomingMessageService } from './services/messageService/WebSo
 import { setupWebsocketAndRedisEventWiring } from './websocketAndRedisEventWiring';
 
 const port = process.env.PORT ?? 3000;
+
 /*
- * These Redis objects are just connections to a separate and shared redis server elsewhere. All servers will connect
- * to the same redis server.
- * The userIdToWsConnectionMap is storing sessions for each server only.
- * */
-export const redisPublish = new Redis(); // new Redis() with no arguments uses ioredis defaults: localhost:6379
+ * Three Redis connections:
+ *   redisPublish   — publishing messages to channels
+ *   redisSubscribe — subscribing to channels (a subscribed client can't publish)
+ *   redisGeo       — general-purpose commands (geo, sorted sets, etc.)
+ *
+ * All server instances share the same Redis server.
+ * WebSocket connection state (userIdToWsConnectionMap) is per-instance only.
+ */
+export const redisPublish = new Redis(); // defaults to localhost:6379; set REDIS_URL for remote
 export const redisSubscribe = new Redis();
 export const redisGeo = new Redis();
 
@@ -32,3 +37,18 @@ wss.on('connection', (ws, req) =>
   connectionManager.handleConnection(ws, req, webSocketIncomingMessageService),
 );
 setupWebsocketAndRedisEventWiring(redisIncomingMessageService, webSocketIncomingMessageService);
+
+// Graceful shutdown — closes HTTP server and Redis connections before exiting
+function shutdown() {
+  console.log('Shutting down...');
+  server.close(() => {
+    console.log('HTTP server closed');
+    Promise.all([redisPublish.quit(), redisSubscribe.quit(), redisGeo.quit()]).then(() => {
+      console.log('Redis connections closed');
+      process.exit(0);
+    });
+  });
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

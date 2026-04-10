@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -17,72 +15,4 @@ model User {
   username      String   @unique
   password_hash String
   created_at    DateTime @default(now())
-  user_type     UserType
-  drivers       Driver[]
-  tripsAsRider  Trip[]   @relation("TripRider")
-}
-
-model Driver {
-  driver_id String @id @default(uuid())
-
-  user_id String // FK column — matches User.user_id type (String)
-  user    User   @relation(fields: [user_id], references: [user_id])
-
-  driver_status DriverStatus
-  vehicle_plate String
-
-  trips Trip[]
-}
-
-model Trip {
-  id                          String     @id @default(uuid())
-  startGPSLatitude_requested  Decimal    @db.Decimal(9, 6)
-  startGPSLongitude_requested Decimal    @db.Decimal(9, 6)
-  endGPSLatitude_requested    Decimal    @db.Decimal(9, 6)
-  endGPSLongitude_requested   Decimal    @db.Decimal(9, 6)
-  startGPSLatitude_actual     Decimal?   @db.Decimal(9, 6)
-  startGPSLongitude_actual    Decimal?   @db.Decimal(9, 6)
-  endGPSLatitude_actual       Decimal?   @db.Decimal(9, 6)
-  endGPSLongitude_actual      Decimal?   @db.Decimal(9, 6)
-  requested_at                DateTime
-  accepted_at                 DateTime?
-  picked_up_at                DateTime?
-  dropped_off_at              DateTime?
-  status                      TripStatus
-  ratingForDriver             Rating?
-  ratingForRider              Rating?
-
-  rider_id     String // FK column — matches User.user_id type (String)
-  requested_by User   @relation("TripRider", fields: [rider_id], references: [user_id])
-
-  driver_id   String? // FK column — matches User.user_id type (String)
-  accepted_by Driver? @relation(fields: [driver_id], references: [driver_id])
-}
-
-enum Rating {
-  ONE
-  TWO
-  THREE
-  FOUR
-  FIVE
-}
-
-enum TripStatus {
-  REQUESTED
-  ACCEPTED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum DriverStatus {
-  DRIVING_SOMEONE
-  AVAILABLE_FOR_TRIPS
-  ON_BREAK
-  OFF_DUTY
-}
-
-enum UserType {
-  RIDER
-  DRIVER
 }

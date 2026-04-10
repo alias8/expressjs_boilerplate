@@ -1,29 +1,22 @@
 import { Router, Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
-import { Prisma, UserType } from '../../generated/prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { createUser } from '../../utils/db/user';
 
 const router = Router();
 
-interface UserLoginRequest {
+interface UserRegisterRequest {
   username: string;
   password: string;
-  user_type: UserType;
 }
 
 const bcryptSaltRounds = 10;
-/*
-* For development
-* {
-    "username": "user1",
-    "password": "password1"
-}
-* */
+
 router.post('/', async (req: Request, res: Response) => {
-  const { username, password, user_type } = req.body as UserLoginRequest;
+  const { username, password } = req.body as UserRegisterRequest;
   try {
     const password_hash = await bcrypt.hash(password, bcryptSaltRounds);
-    const user = await createUser(username, password_hash, user_type);
+    const user = await createUser(username, password_hash);
     res.json({ user });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
